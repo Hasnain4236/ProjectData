@@ -1,0 +1,140 @@
+✅ Data Cleaning: The Full Process
+
+Data cleaning (or data cleansing) is a crucial step in the data science pipeline. It ensures that the raw data becomes accurate, consistent, and usable for analysis and modeling.
+
+1️⃣ Data Collection & Initial Loading
+
+Data is collected from various sources: CSV files, databases, APIs, logs, sensors, etc.
+
+Loaded into tools like Pandas (Python), R, Excel, or a database.
+
+2️⃣ Data Inspection & Profiling
+
+Explore the dataset to understand its structure:
+
+Number of rows and columns
+
+Data types of each column
+
+Basic descriptive statistics (mean, median, min, max, std deviation)
+
+Check for missing values, duplicate rows, outliers
+
+Tools Used:
+
+df.head(), df.info(), df.describe() in Pandas
+
+Pandas Profiling / Sweetviz → Automated report generation
+
+3️⃣ Handling Missing Values
+
+⚡ Common Issues:
+
+Missing entries (empty cells, NaN, NULL)
+
+Approaches:
+
+❌ Remove rows with missing values (df.dropna()).
+
+✅ Fill missing values with:
+
+Mean or median (for numerical columns).
+
+Mode or constant (for categorical columns).
+
+Advanced: Predict missing values using models (KNN Imputer).
+
+Example:
+
+df['Age'].fillna(df['Age'].mean(), inplace=True)
+
+4️⃣ Handling Duplicates
+
+❗ Duplicated rows may occur due to data collection errors.
+
+Remove duplicates:
+
+df.drop_duplicates(inplace=True)
+
+5️⃣ Standardizing Data Formats
+
+Normalize text case → lowercase all strings.
+
+Standardize date formats → Convert to datetime type:
+
+df['Date'] = pd.to_datetime(df['Date'], format='%Y-%m-%d')
+
+6️⃣ Handling Outliers
+
+Detect outliers using statistical methods:
+
+Z-score method → Flag values beyond ±3 standard deviations.
+
+IQR method → Data outside [Q1 - 1.5×IQR, Q3 + 1.5×IQR].
+
+Decide:
+
+❌ Remove outliers.
+
+✅ Cap extreme values (Winsorization).
+
+Example (IQR method):
+
+Q1 = df['Sales'].quantile(0.25)
+Q3 = df['Sales'].quantile(0.75)
+IQR = Q3 - Q1
+df = df[(df['Sales'] >= Q1 - 1.5 * IQR) & (df['Sales'] <= Q3 + 1.5 * IQR)]
+
+7️⃣ Encoding Categorical Variables
+
+Convert categories into numerical form:
+
+Label Encoding (e.g., 'Male' → 0, 'Female' → 1).
+
+One-Hot Encoding (create binary columns).
+
+Example (One-Hot Encoding):
+
+df = pd.get_dummies(df, columns=['Gender'])
+
+8️⃣ Feature Scaling
+
+Normalize numerical features to the same scale:
+
+StandardScaler (mean=0, std=1).
+
+MinMaxScaler (scale between 0 and 1).
+
+Example:
+
+from sklearn.preprocessing import MinMaxScaler
+scaler = MinMaxScaler()
+df[['Sales', 'Marketing_Spend']] = scaler.fit_transform(df[['Sales', 'Marketing_Spend']])
+
+9️⃣ Handling Inconsistent Data
+
+Correct typos in categorical data (e.g., 'New York', 'new york', 'NY' → 'New York').
+
+Validate data types: Ensure columns contain only expected types.
+
+🔟 Final Verification
+
+Validate the cleaned dataset:
+
+No missing values: df.isnull().sum()
+
+No duplicate rows: df.duplicated().sum()
+
+Data types are correct
+
+All necessary transformations are applied
+
+✅ Why Data Cleaning Is Important
+
+Prevents garbage-in, garbage-out (GIGO) problem.
+
+Improves model accuracy and performance.
+
+Helps uncover true patterns and relationships.
+
+Makes data easier to analyze and visualize.

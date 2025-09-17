@@ -1,0 +1,105 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/28.1.2 Chrome/138.0.7204.243 Electron/37.4.0 Safari/537.36" version="28.1.2">
+  <diagram name="Page-1" id="CAxYivxTGxT3SaGmDWKH">
+    <mxGraphModel dx="1303" dy="1925" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="850" pageHeight="1100" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-4" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-1">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="210" y="-990" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-1" value="" style="shape=mxgraph.sap.icon;labelPosition=center;verticalLabelPosition=bottom;align=center;verticalAlign=top;strokeWidth=1;strokeColor=#D5DADD;fillColor=#EDEFF0;gradientColor=#FCFCFC;gradientDirection=west;aspect=fixed;SAPIcon=Application_Frontend_Service" vertex="1" parent="1">
+          <mxGeometry x="20" y="-1030" width="80" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-17" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-3" target="Y63-vPBac4jUoDxNbEhN-6">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-3" value="input&amp;nbsp;&lt;div&gt;1.csv(comma seperated values&lt;/div&gt;&lt;div&gt;2.arf(audit record format,security logs&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="220" y="-1050" width="60" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-18" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-6" target="Y63-vPBac4jUoDxNbEhN-8">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-6" value="" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=default;fontSize=12;spacingTop=3;image=img/lib/ibm/infrastructure/mobile_backend.svg;" vertex="1" parent="1">
+          <mxGeometry x="220" y="-870" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-23" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-8" target="Y63-vPBac4jUoDxNbEhN-11">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-8" value="" style="sketch=0;pointerEvents=1;shadow=0;dashed=0;html=1;strokeColor=none;fillColor=#005F4B;labelPosition=center;verticalLabelPosition=bottom;verticalAlign=top;align=center;outlineConnect=0;shape=mxgraph.veeam2.cpu_socket;" vertex="1" parent="1">
+          <mxGeometry x="200" y="-740" width="80" height="90" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-10" value="Data processing&lt;div&gt;1.handling missing data(imputation,dropping nulls)&lt;/div&gt;&lt;div&gt;2.data type conversion&lt;/div&gt;&lt;div&gt;3.encoding categorical variables(one hot encoding or label encoding)&lt;/div&gt;&lt;div&gt;4.normalization/standardization of numerical values&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;movable=1;resizable=1;rotatable=1;deletable=1;editable=1;locked=0;connectable=1;" vertex="1" parent="1">
+          <mxGeometry x="172.5" y="-640" width="135" height="160" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-43" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-11">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="431" y="-845" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-11" value="" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/database_server.svg;" vertex="1" parent="1">
+          <mxGeometry x="390" y="-745" width="77.9" height="95" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-13" value="stores the data after the processing&amp;nbsp;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="490" y="-715" width="60" height="40" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-57" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=1;exitY=0;exitDx=0;exitDy=0;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-24" target="Y63-vPBac4jUoDxNbEhN-56">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-24" value="mogodb&lt;div&gt;(maintain upload time and data schema&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="395" y="-610" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-48" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-41" target="Y63-vPBac4jUoDxNbEhN-47">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-41" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/analytics/Analysis_Services.svg;" vertex="1" parent="1">
+          <mxGeometry x="385" y="-930" width="105" height="80" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-44" value="data analysis&lt;div&gt;1.eda(exploratory data analysis&lt;/div&gt;&lt;div&gt;2.statistica analysis&lt;/div&gt;&lt;div&gt;3.machine learning analysis&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="390" y="-1020" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-53" value="" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-47" target="Y63-vPBac4jUoDxNbEhN-52">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-47" value="" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;fontColor=#4277BB;labelBackgroundColor=default;fontSize=12;spacingTop=3;image=img/lib/ibm/applications/visualization.svg;" vertex="1" parent="1">
+          <mxGeometry x="600" y="-950" width="60" height="60" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-49" value="data visualization&lt;div&gt;1.tableau(paid but advanced)&amp;nbsp;&lt;/div&gt;&lt;div&gt;2.OR google data studio&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="600" y="-850" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-51" value="application frontend" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="20" y="-940" width="60" height="30" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-55" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-52">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="460" y="-730" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-52" value="" style="image;aspect=fixed;html=1;points=[];align=center;fontSize=12;image=img/lib/azure2/devops/Application_Insights.svg;" vertex="1" parent="1">
+          <mxGeometry x="700" y="-750" width="44" height="63" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-54" value="profling(insights)&lt;div&gt;1.pandas profiling&lt;/div&gt;&lt;div&gt;2.autoviz&lt;/div&gt;&lt;div&gt;3.sweetviz&lt;/div&gt;&lt;div&gt;4.lux&lt;/div&gt;" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="692" y="-680" width="60" height="115" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-60" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;" edge="1" parent="1" source="Y63-vPBac4jUoDxNbEhN-56">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="670" y="-410" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-56" value="" style="sketch=0;outlineConnect=0;fontColor=#232F3E;gradientColor=none;fillColor=#01A88D;strokeColor=none;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;pointerEvents=1;shape=mxgraph.aws4.sagemaker_model;" vertex="1" parent="1">
+          <mxGeometry x="400" y="-460" width="100" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-58" value="model gpt(open ai)" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="420" y="-340" width="60" height="50" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-59" value="" style="image;aspect=fixed;perimeter=ellipsePerimeter;html=1;align=center;shadow=0;dashed=0;spacingTop=3;image=img/lib/active_directory/user.svg;" vertex="1" parent="1">
+          <mxGeometry x="680" y="-485" width="55.5" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="Y63-vPBac4jUoDxNbEhN-61" value="user" style="text;html=1;align=center;verticalAlign=middle;whiteSpace=wrap;rounded=0;" vertex="1" parent="1">
+          <mxGeometry x="670" y="-335" width="100" height="100" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,7 @@
+{
+  "dataset_info": {
+    "rows": 30,
+    "columns": 7,
+    "numeric_columns": 4,
+    "categorical_columns": 3,
+    "missing_values": 

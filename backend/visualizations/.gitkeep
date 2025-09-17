@@ -1,0 +1,3 @@
+# Keep visualizations directory but ignore contents
+*
+!.gitkeep

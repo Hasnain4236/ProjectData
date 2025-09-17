@@ -1,0 +1,92 @@
+{
+  "dataset_overview": {
+    "total_rows": 30,
+    "total_columns": 7,
+    "memory_usage_mb": 0.01
+  },
+  "column_analysis": {
+    "sales_amount": {
+      "data_type": "float64",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 30,
+      "mean": 1452.5,
+      "std": 939.6194,
+      "min": 420.9,
+      "max": 3450.7,
+      "median": 1115.55,
+      "skewness": 0.7648,
+      "kurtosis": -0.6736
+    },
+    "customer_age": {
+      "data_type": "int64",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 28,
+      "mean": 35.5,
+      "std": 10.1904,
+      "min": 21.0,
+      "max": 55.0,
+      "median": 33.5,
+      "skewness": 0.4521,
+      "kurtosis": -0.9696
+    },
+    "product_category": {
+      "data_type": "object",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 3
+    },
+    "region": {
+      "data_type": "object",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 4
+    },
+    "customer_satisfaction": {
+      "data_type": "float64",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 18,
+      "mean": 4.1133,
+      "std": 0.5251,
+      "min": 3.2,
+      "max": 4.9,
+      "median": 4.1,
+      "skewness": -0.0255,
+      "kurtosis": -1.2315
+    },
+    "order_date": {
+      "data_type": "object",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 30
+    },
+    "repeat_customer": {
+      "data_type": "int64",
+      "non_null_count": 30,
+      "null_count": 0,
+      "unique_values": 2,
+      "mean": 0.6333,
+      "std": 0.4901,
+      "min": 0.0,
+      "max": 1.0,
+      "median": 1.0,
+      "skewness": -0.5829,
+      "kurtosis": -1.784
+    }
+  },
+  "data_quality_metrics": {
+    "missing_data_percentage": 0.0,
+    "duplicate_rows": 0,
+    "unique_values_per_column": {
+      "sales_amount": 30,
+      "customer_age": 28,
+      "product_category": 3,
+      "region": 4,
+      "customer_satisfaction": 18,
+      "order_date": 30,
+      "repeat_customer": 2
+    }
+  }
+}

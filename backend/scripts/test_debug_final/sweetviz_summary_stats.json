@@ -1,0 +1,78 @@
+{
+  "dataset_info": {
+    "total_rows": 30,
+    "total_columns": 7,
+    "numeric_columns": 4,
+    "categorical_columns": 3,
+    "missing_values": 0,
+    "duplicate_rows": 0
+  },
+  "data_quality": {
+    "completeness_percentage": 100.0,
+    "duplicate_percentage": 0.0
+  },
+  "column_types": {
+    "numeric": [
+      "sales_amount",
+      "customer_age",
+      "customer_satisfaction",
+      "repeat_customer"
+    ],
+    "categorical": [
+      "product_category",
+      "region",
+      "order_date"
+    ]
+  },
+  "numeric_statistics": {
+    "sales_amount": {
+      "mean": 1452.5,
+      "median": 1115.55,
+      "std": 939.6194416743481,
+      "min": 420.9,
+      "max": 3450.7,
+      "missing_count": 0
+    },
+    "customer_age": {
+      "mean": 35.5,
+      "median": 33.5,
+      "std": 10.190428233700823,
+      "min": 21.0,
+      "max": 55.0,
+      "missing_count": 0
+    },
+    "customer_satisfaction": {
+      "mean": 4.113333333333333,
+      "median": 4.1,
+      "std": 0.5250506270061396,
+      "min": 3.2,
+      "max": 4.9,
+      "missing_count": 0
+    },
+    "repeat_customer": {
+      "mean": 0.6333333333333333,
+      "median": 1.0,
+      "std": 0.4901325178535609,
+      "min": 0.0,
+      "max": 1.0,
+      "missing_count": 0
+    }
+  },
+  "categorical_statistics": {
+    "product_category": {
+      "unique_values": 3,
+      "most_frequent": "Electronics",
+      "missing_count": 0
+    },
+    "region": {
+      "unique_values": 4,
+      "most_frequent": "North",
+      "missing_count": 0
+    },
+    "order_date": {
+      "unique_values": 30,
+      "most_frequent": "2024-01-15",
+      "missing_count": 0
+    }
+  }
+}
