@@ -1,0 +1,12 @@
+{
+  "name": "professional-data-science-platform",
+  "version": 2,
+  "buildCommand": "cd frontend && npm install --legacy-peer-deps && npm run build",
+  "outputDirectory": "frontend/build",
+  "installCommand": "cd frontend && npm install --legacy-peer-deps",
+  "devCommand": "cd frontend && npm start",
+  "framework": null,
+  "env": {
+    "REACT_APP_API_URL": "https://your-backend-railway-url.railway.app"
+  }
+}
