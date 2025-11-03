@@ -1156,6 +1156,262 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
   }
 });
 
+// AI Insights endpoint using LangGraph
+app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No file uploaded',
+        hint: "Send multipart/form-data with field name 'file' containing the CSV"
+      });
+    }
+
+    const csvFilePath = req.file.path;
+    const analysisType = req.body.analysisType || 'summary';
+    
+    console.log('🤖 Starting LangGraph AI Insights generation...');
+    console.log('📁 CSV File:', csvFilePath);
+    console.log('🧠 Analysis Type:', analysisType);
+
+    // Execute LangGraph analyzer Python script
+    const { spawn } = require('child_process');
+    const pythonScript = path.join(__dirname, 'scripts', 'langgraph_analyzer.py');
+    
+    // Use Python to run LangGraph analyzer with increased timeout
+    const pythonProcess = spawn('python', [
+      pythonScript, csvFilePath, analysisType
+    ], {
+      timeout: 120000, // 2 minute timeout for model loading
+      maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
+    });
+    
+    let output = '';
+    let error = '';
+    let isProcessing = true;
+    
+    // Set a hard timeout for the entire operation
+    const hardTimeout = setTimeout(() => {
+      if (isProcessing) {
+        console.warn('⏱️ Hard timeout reached, killing process');
+        pythonProcess.kill();
+        isProcessing = false;
+        if (!res.headersSent) {
+          res.status(408).json({
+            success: false,
+            error: 'Request timeout - analysis took too long (>2 minutes)',
+            hint: 'Try with a smaller file or simpler analysis type'
+          });
+        }
+      }
+    }, 130000); // 2 minutes + 10 second buffer
+    
+    pythonProcess.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      // Only log first 200 chars per chunk to avoid spam
+      if (chunk.length > 200) {
+        console.log('🤖 LangGraph Output:', chunk.substring(0, 200) + '...');
+      } else {
+        console.log('🤖 LangGraph Output:', chunk);
+      }
+    });
+    
+    pythonProcess.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      error += chunk;
+      // Log warnings but don't treat stderr as fatal if process succeeds
+      if (chunk.length > 200) {
+        console.warn('⚠️ LangGraph stderr:', chunk.substring(0, 200) + '...');
+      } else {
+        console.warn('⚠️ LangGraph stderr:', chunk);
+      }
+    });
+    
+    pythonProcess.on('close', (code) => {
+      clearTimeout(hardTimeout);
+      if (!isProcessing) return; // Already timed out
+      
+      isProcessing = false;
+      console.log('🏁 LangGraph process finished with code:', code);
+      
+      if (code !== 0) {
+        console.error('❌ LangGraph failed with exit code:', code);
+        if (!res.headersSent) {
+          return res.status(500).json({
+            success: false,
+            error: `LangGraph analysis failed (exit code: ${code})`,
+            details: error.substring(0, 1000), // Limit error output
+            code: code
+          });
+        }
+        return;
+      }
+      
+      try {
+        // Extract JSON result from output
+        let jsonResult = null;
+        const lines = output.split('\n');
+        
+        for (const line of lines) {
+          if (line.includes('RESULT_JSON:')) {
+            const jsonStr = line.replace('RESULT_JSON:', '').trim();
+            jsonResult = JSON.parse(jsonStr);
+            break;
+          }
+        }
+        
+        if (!jsonResult) {
+          throw new Error('No valid JSON result found in LangGraph output');
+        }
+        
+        if (!jsonResult.success) {
+          if (!res.headersSent) {
+            return res.status(500).json({
+              success: false,
+              error: jsonResult.error || 'LangGraph analysis failed',
+              details: output.substring(0, 500)
+            });
+          }
+          return;
+        }
+        
+        console.log('✅ LangGraph AI Insights generated successfully');
+        if (!res.headersSent) {
+          res.json({
+            success: true,
+            message: 'AI insights generated successfully with LangGraph',
+            result: jsonResult,
+            analysisType: analysisType,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse LangGraph results:', parseError);
+        console.error('Raw output:', output);
+        
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            error: 'Failed to parse LangGraph analysis results',
+            details: parseError.message,
+            rawOutput: output.substring(0, 1000) // Limit output for debugging
+          });
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ AI Insights endpoint error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  }
+});
+
+// Original Bloom AI implementation (commented out for now)
+/*
+    // Execute Bloom AI analyzer Python script
+    const { spawn } = require('child_process');
+    const pythonScript = path.join(__dirname, 'scripts', 'bloom_analyzer.py');
+    
+    // Use conda environment to run the AI analyzer
+    const pythonProcess = spawn('C:/Users/4236h/anaconda3/Scripts/conda.exe', [
+      'run', '-p', 'C:\\Users\\4236h\\anaconda3', '--no-capture-output', 
+      'python', pythonScript, csvFilePath, analysisType
+    ]);
+    
+    let output = '';
+    let error = '';
+    
+    pythonProcess.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      console.log('🤖 AI Output:', chunk);
+    });
+    
+    pythonProcess.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      error += chunk;
+      console.error('❌ AI Error:', chunk);
+    });
+    
+    pythonProcess.on('close', (code) => {
+      console.log('🏁 AI Insights process finished with code:', code);
+      
+      if (code !== 0) {
+        console.error('❌ AI Insights failed with exit code:', code);
+        return res.status(500).json({
+          success: false,
+          error: `AI Insights generation failed (exit code: ${code})`,
+          details: error,
+          code: code
+        });
+      }
+      
+      try {
+        // Extract JSON result from output
+        let jsonResult = null;
+        const lines = output.split('\n');
+        
+        for (const line of lines) {
+          if (line.includes('RESULT_JSON:')) {
+            const jsonStr = line.replace('RESULT_JSON:', '').trim();
+            jsonResult = JSON.parse(jsonStr);
+            break;
+          }
+        }
+        
+        if (!jsonResult) {
+          throw new Error('No valid JSON result found in AI output');
+        }
+        
+        if (!jsonResult.success) {
+          return res.status(500).json({
+            success: false,
+            error: jsonResult.error || 'AI analysis failed',
+            details: output
+          });
+        }
+        
+        console.log('✅ AI Insights generated successfully');
+        res.json({
+          success: true,
+          message: 'AI insights generated successfully',
+          result: jsonResult,
+          analysisType: analysisType,
+          timestamp: new Date().toISOString()
+        });
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse AI results:', parseError);
+        console.error('Raw output:', output);
+        
+        res.status(500).json({
+          success: false,
+          error: 'Failed to parse AI analysis results',
+          details: parseError.message,
+          rawOutput: output.substring(0, 1000) // Limit output for debugging
+        });
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ AI Insights endpoint error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message,
+      stack: error.stack
+    });
+  }
+});
+*/
+
 // Serve visualization files (AutoViz & SweetViz)
 const vizRoot = path.join(__dirname, 'visualizations');
 if (!fs.existsSync(vizRoot)) {
