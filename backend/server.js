@@ -10,15 +10,46 @@ const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const _ = require('lodash');
 require('dotenv').config();
 
-// MongoDB connection
-const connectDB = require('./config/database');
-const { DataProcessingJob, UserSession, DataQualityMetrics, CleanedData } = require('./models');
+// Firebase initialization
+const initializeFirebase = require('./config/firebase');
+const { admin, firestore } = initializeFirebase();
+const FieldValue = admin.firestore.FieldValue;
+
+const jobsCollection = firestore ? firestore.collection('dataProcessingJobs') : null;
+const cleanedCollection = firestore ? firestore.collection('cleanedData') : null;
+
+function ensureFirestore(res) {
+  if (!firestore) {
+    res.status(503).json({
+      success: false,
+      error: 'Firebase is not configured for the backend.',
+      hint: 'Set FIREBASE_SERVICE_ACCOUNT or FIREBASE_CLIENT_EMAIL/FIREBASE_PRIVATE_KEY in backend/.env to enable persistent storage.'
+    });
+    return false;
+  }
+  return true;
+}
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Connect to MongoDB
-connectDB();
+// Python interpreter configuration
+// Use environment variable or fallback to python3
+const PYTHON_EXECUTABLE = process.env.PYTHON_PATH || 'python3';
+
+// Allowlist for valid analysis types (security: prevent command injection)
+const VALID_ANALYSIS_TYPES = ['summary', 'trends', 'insights', 'anomalies', 'correlations', 'chat'];
+
+// Validate Python executable if possible (optional - logs warning if not accessible)
+const { execSync, spawn } = require('child_process');
+try {
+  execSync(`${PYTHON_EXECUTABLE} --version`, { stdio: 'pipe' });
+  console.log(`✓ Python interpreter validated: ${PYTHON_EXECUTABLE}`);
+} catch (err) {
+  console.warn(`⚠️  Warning: Could not validate Python interpreter at '${PYTHON_EXECUTABLE}'. Proceeding anyway...`);
+}
+
+// Firebase already initialized above. If initialization fails, server startup will throw.
 
 // Middleware
 // Helmet (environment-aware): relax policies in development to allow cross-origin dev fetches
@@ -34,33 +65,46 @@ if (isDev) {
   app.use(helmet());
 }
 app.get('/api/jobs', async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
     const { limit = 10, status, page = 1 } = req.query;
-    const query = {};
-    
-    if (status) {
-      query.status = status;
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+
+    let queryRef = status
+      ? jobsCollection.where('status', '==', status)
+      : jobsCollection;
+
+    queryRef = queryRef.orderBy('createdAt', 'desc');
+
+    const snapshot = await queryRef
+      .offset((parsedPage - 1) * parsedLimit)
+      .limit(parsedLimit)
+      .get();
+
+    const jobs = snapshot.docs.map((doc) => doc.data());
+
+    let totalJobs = jobs.length;
+    try {
+      const countRef = status
+        ? jobsCollection.where('status', '==', status)
+        : jobsCollection;
+      const countSnap = await countRef.count().get();
+      totalJobs = countSnap.data().count;
+    } catch (countError) {
+      console.warn('⚠️  Firestore count aggregation unavailable:', countError.message);
     }
-    
-    const jobs = await DataProcessingJob.find(query)
-      .sort({ createdAt: -1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit))
-      .select('jobId fileName originalFileName status metadata.uploadedAt metadata.processedAt analysisResults.totalRows cleaningReport');
-    
-    const totalJobs = await DataProcessingJob.countDocuments(query);
-    
+
     res.json({
       success: true,
-      jobs: jobs,
+      jobs,
       pagination: {
         total: totalJobs,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(totalJobs / parseInt(limit))
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.max(1, Math.ceil(totalJobs / parsedLimit))
       }
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -71,21 +115,21 @@ app.get('/api/jobs', async (req, res) => {
 
 // Get specific job details
 app.get('/api/jobs/:jobId', async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
-    const job = await DataProcessingJob.findOne({ jobId: req.params.jobId });
-    
-    if (!job) {
+    const jobDoc = await jobsCollection.doc(req.params.jobId).get();
+
+    if (!jobDoc.exists) {
       return res.status(404).json({
         success: false,
         error: 'Job not found'
       });
     }
-    
+
     res.json({
       success: true,
-      job: job
+      job: jobDoc.data()
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -176,6 +220,8 @@ app.get('/', (req, res) => {
       process: 'POST /api/process',
       visualize: 'POST /api/visualize',
       insights: 'POST /api/insights',
+      'ai-insights': 'POST /api/generate-ai-insights',
+      'ask-question': 'POST /api/ask-question',
       health: 'GET /api/health'
     }
   });
@@ -519,6 +565,7 @@ function generateBarChartData() {
 
 // Parse CSV and analyze data quality
 app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -529,29 +576,32 @@ app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
 
     const filePath = req.file.path;
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    
-    // Create job record in MongoDB
-    const jobRecord = new DataProcessingJob({
-      jobId: jobId,
+
+    const jobRecord = {
+      jobId,
       fileName: req.file.filename,
       originalFileName: req.file.originalname,
       status: 'processing',
       metadata: {
         fileSize: req.file.size,
-        uploadedAt: new Date()
-      }
-    });
+        uploadedAt: new Date().toISOString()
+      },
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
 
-    await jobRecord.save();
+    await jobsCollection.doc(jobId).set(jobRecord);
     
     try {
       const analysis = await analyzeCSVQuality(filePath);
       
       // Update job with analysis results
-      jobRecord.status = 'completed';
-      jobRecord.metadata.processedAt = new Date();
-      jobRecord.analysisResults = analysis;
-      await jobRecord.save();
+      await jobsCollection.doc(jobId).update({
+        status: 'completed',
+        'metadata.processedAt': new Date().toISOString(),
+        analysisResults: analysis,
+        updatedAt: FieldValue.serverTimestamp()
+      });
       
       res.json({
         success: true,
@@ -564,10 +614,11 @@ app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
       });
 
     } catch (analysisError) {
-      // Update job with error status
-      jobRecord.status = 'failed';
-      jobRecord.errorMessage = analysisError.message;
-      await jobRecord.save();
+      await jobsCollection.doc(jobId).update({
+        status: 'failed',
+        errorMessage: analysisError.message,
+        updatedAt: FieldValue.serverTimestamp()
+      });
       throw analysisError;
     }
 
@@ -581,6 +632,7 @@ app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
 
 // Clean CSV data based on the data_cleaning.txt requirements
 app.post('/api/clean-csv', async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
     const { fileId, filename, cleaningOptions = {} } = req.body;
     
@@ -589,13 +641,14 @@ app.post('/api/clean-csv', async (req, res) => {
     let filePath = null;
     
     if (fileId) {
-      jobRecord = await DataProcessingJob.findOne({ jobId: fileId });
-      if (!jobRecord) {
+      const jobDoc = await jobsCollection.doc(fileId).get();
+      if (!jobDoc.exists) {
         return res.status(404).json({
           success: false,
           error: 'Job not found'
         });
       }
+      jobRecord = jobDoc.data();
       filePath = path.join(uploadsDir, jobRecord.fileName);
     } else if (filename) {
       filePath = path.join(uploadsDir, filename);
@@ -614,31 +667,34 @@ app.post('/api/clean-csv', async (req, res) => {
     }
 
     const cleanedData = await cleanCSVData(filePath, cleaningOptions);
-    
+
     // Save cleaned data to new file
     const cleanedFilename = `cleaned_${Date.now()}_${path.basename(filePath)}`;
     const cleanedFilePath = path.join(uploadsDir, cleanedFilename);
-    
+
     await saveCleanedCSV(cleanedData.data, cleanedFilePath, cleanedData.headers);
-    
-    // Save cleaned data to MongoDB
+
+    // Persist cleaned data metadata to Firestore
     const dataId = `data_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-    const cleanedDataRecord = new CleanedData({
-      dataId: dataId,
+    const qualityMetrics = await calculateQualityMetrics(cleanedData.data, cleanedData.headers);
+    const dataTypes = await detectDataTypesForStorage(cleanedData.data, cleanedData.headers);
+
+    const cleanedRecord = {
+      dataId,
       jobId: jobRecord ? jobRecord.jobId : `manual_${Date.now()}`,
       originalFileName: path.basename(filePath),
       cleanedFileName: cleanedFilename,
       headers: cleanedData.headers,
       rowCount: cleanedData.data.length,
       columnCount: cleanedData.headers.length,
-      data: cleanedData.data, // Store actual cleaned data
+      previewData: cleanedData.data.slice(0, 100),
       metadata: {
         encoding: 'UTF-8',
         delimiter: ',',
         quoteChar: '"',
-        cleaningTimestamp: new Date(),
-        dataTypes: await detectDataTypesForStorage(cleanedData.data, cleanedData.headers),
-        qualityMetrics: await calculateQualityMetrics(cleanedData.data, cleanedData.headers)
+        cleaningTimestamp: new Date().toISOString(),
+        dataTypes,
+        qualityMetrics
       },
       processingStats: {
         originalSize: cleanedData.originalSize || cleanedData.data.length,
@@ -648,31 +704,40 @@ app.post('/api/clean-csv', async (req, res) => {
         outliersTreated: cleanedData.report.outliersTreated || 0,
         duplicatesRemoved: cleanedData.report.duplicatesRemoved || 0,
         encodingFixed: cleanedData.report.encodingFixed || 0
-      }
-    });
+      },
+      storage: {
+        path: cleanedFilePath,
+        relativePath: path.relative(__dirname, cleanedFilePath)
+      },
+      cleaningReport: cleanedData.report,
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    };
 
-    await cleanedDataRecord.save();
-    
+    await cleanedCollection.doc(dataId).set(cleanedRecord);
+
     // Update job record with cleaning results and data reference
     if (jobRecord) {
-      jobRecord.cleaningReport = cleanedData.report;
-      jobRecord.processingOptions = cleaningOptions;
-      jobRecord.metadata.dataId = dataId; // Link to cleaned data
-      await jobRecord.save();
+      await jobsCollection.doc(jobRecord.jobId).update({
+        cleaningReport: cleanedData.report,
+        processingOptions: cleaningOptions,
+        'metadata.dataId': dataId,
+        updatedAt: FieldValue.serverTimestamp()
+      });
     }
-    
+
     res.json({
       success: true,
       message: 'Data cleaning completed and saved to database',
       originalFile: path.basename(filePath),
       cleanedFile: cleanedFilename,
-      dataId: dataId,
+      dataId,
       cleaningReport: cleanedData.report,
-      cleanedData: cleanedData.data.slice(0, 100), // Return first 100 rows for preview
+      cleanedData: cleanedData.data.slice(0, 100),
       totalRows: cleanedData.data.length,
-      qualityMetrics: cleanedDataRecord.metadata.qualityMetrics,
+      qualityMetrics: qualityMetrics,
       downloadUrl: `/api/download/${cleanedFilename}`,
-      dataUrl: `/api/data/${dataId}` // New endpoint to retrieve full cleaned data
+      dataUrl: `/api/data/${dataId}`
     });
 
   } catch (error) {
@@ -713,28 +778,53 @@ app.get('/api/download/:filename', (req, res) => {
   }
 });
 
-// Get cleaned data from MongoDB
+// Get cleaned data from Firebase
 app.get('/api/data/:dataId', async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
-    const cleanedData = await CleanedData.findOne({ dataId: req.params.dataId });
-    
-    if (!cleanedData) {
+    const doc = await cleanedCollection.doc(req.params.dataId).get();
+
+    if (!doc.exists) {
       return res.status(404).json({
         success: false,
         error: 'Cleaned data not found'
       });
     }
-    
+
+    const record = doc.data();
+    let data = record.previewData || [];
+    const possiblePaths = [];
+
+    if (record.storage?.path) {
+      possiblePaths.push(record.storage.path);
+    }
+    if (record.storage?.relativePath) {
+      possiblePaths.push(path.join(__dirname, record.storage.relativePath));
+    }
+    if (record.cleanedFileName) {
+      possiblePaths.push(path.join(uploadsDir, record.cleanedFileName));
+    }
+
+    for (const candidate of possiblePaths) {
+      if (candidate && fs.existsSync(candidate)) {
+        try {
+          data = await loadCSVFile(candidate);
+          break;
+        } catch (readError) {
+          console.warn('⚠️  Failed to read cleaned data file:', readError.message);
+        }
+      }
+    }
+
     res.json({
       success: true,
-      data: cleanedData.data,
-      metadata: cleanedData.metadata,
-      processingStats: cleanedData.processingStats,
-      headers: cleanedData.headers,
-      rowCount: cleanedData.rowCount,
-      columnCount: cleanedData.columnCount
+      data,
+      metadata: record.metadata,
+      processingStats: record.processingStats,
+      headers: record.headers,
+      rowCount: record.rowCount,
+      columnCount: record.columnCount
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -743,30 +833,41 @@ app.get('/api/data/:dataId', async (req, res) => {
   }
 });
 
-// Get all cleaned datasets  
+// Get all cleaned datasets
 app.get('/api/datasets', async (req, res) => {
+  if (!ensureFirestore(res)) return;
   try {
-    const { limit = 10, page = 1, sortBy = 'createdAt', order = 'desc' } = req.query;
-    
-    const datasets = await CleanedData.find()
-      .select('dataId jobId originalFileName cleanedFileName rowCount columnCount metadata.cleaningTimestamp metadata.qualityMetrics processingStats')
-      .sort({ [sortBy]: order === 'desc' ? -1 : 1 })
-      .limit(parseInt(limit))
-      .skip((parseInt(page) - 1) * parseInt(limit));
-    
-    const totalDatasets = await CleanedData.countDocuments();
-    
+    const { limit = 10, page = 1, order = 'desc' } = req.query;
+    const parsedLimit = Math.min(Math.max(parseInt(limit, 10) || 10, 1), 100);
+    const parsedPage = Math.max(parseInt(page, 10) || 1, 1);
+
+    let queryRef = cleanedCollection.orderBy('createdAt', order === 'asc' ? 'asc' : 'desc');
+
+    const snapshot = await queryRef
+      .offset((parsedPage - 1) * parsedLimit)
+      .limit(parsedLimit)
+      .get();
+
+    const datasets = snapshot.docs.map((doc) => doc.data());
+
+    let totalDatasets = datasets.length;
+    try {
+      const countSnap = await cleanedCollection.count().get();
+      totalDatasets = countSnap.data().count;
+    } catch (countError) {
+      console.warn('⚠️  Firestore count aggregation unavailable for datasets:', countError.message);
+    }
+
     res.json({
       success: true,
-      datasets: datasets,
+      datasets,
       pagination: {
         total: totalDatasets,
-        page: parseInt(page),
-        limit: parseInt(limit),
-        pages: Math.ceil(totalDatasets / parseInt(limit))
+        page: parsedPage,
+        limit: parsedLimit,
+        pages: Math.max(1, Math.ceil(totalDatasets / parsedLimit))
       }
     });
-
   } catch (error) {
     res.status(500).json({
       success: false,
@@ -1168,7 +1269,24 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     }
 
     const csvFilePath = req.file.path;
-    const analysisType = req.body.analysisType || 'summary';
+    
+    // Strict validation: Use allowlist for analysis type (security: prevent command injection)
+    const requestedAnalysisType = req.body.analysisType;
+    let analysisType = 'summary'; // Default fallback
+    
+    if (requestedAnalysisType) {
+      // Check against allowlist of valid types
+      if (VALID_ANALYSIS_TYPES.includes(requestedAnalysisType)) {
+        analysisType = requestedAnalysisType;
+      } else {
+        return res.status(400).json({
+          success: false,
+          error: `Invalid analysis type: '${requestedAnalysisType}'`,
+          hint: `Valid types are: ${VALID_ANALYSIS_TYPES.join(', ')}`,
+          validTypes: VALID_ANALYSIS_TYPES
+        });
+      }
+    }
     
     console.log('🤖 Starting LangGraph AI Insights generation...');
     console.log('📁 CSV File:', csvFilePath);
@@ -1178,11 +1296,11 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     const { spawn } = require('child_process');
     const pythonScript = path.join(__dirname, 'scripts', 'langgraph_analyzer.py');
     
-    // Use Python to run LangGraph analyzer with increased timeout
-    const pythonProcess = spawn('python', [
+    // Use configured Python interpreter to run LangGraph analyzer
+    // Note: Using manual hardTimeout below instead of spawn's timeout option
+    const pythonProcess = spawn(PYTHON_EXECUTABLE, [
       pythonScript, csvFilePath, analysisType
     ], {
-      timeout: 120000, // 2 minute timeout for model loading
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
     });
     
@@ -1190,42 +1308,24 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     let error = '';
     let isProcessing = true;
     
-    // Set a hard timeout for the entire operation
+    // Set a hard timeout for the entire operation (2 minutes)
     const hardTimeout = setTimeout(() => {
       if (isProcessing) {
         console.warn('⏱️ Hard timeout reached, killing process');
         pythonProcess.kill();
-        isProcessing = false;
-        if (!res.headersSent) {
-          res.status(408).json({
-            success: false,
-            error: 'Request timeout - analysis took too long (>2 minutes)',
-            hint: 'Try with a smaller file or simpler analysis type'
-          });
-        }
       }
-    }, 130000); // 2 minutes + 10 second buffer
+    }, 120000);
     
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       output += chunk;
-      // Only log first 200 chars per chunk to avoid spam
-      if (chunk.length > 200) {
-        console.log('🤖 LangGraph Output:', chunk.substring(0, 200) + '...');
-      } else {
-        console.log('🤖 LangGraph Output:', chunk);
-      }
+      console.log('🤖 LangGraph Output:', chunk);
     });
     
     pythonProcess.stderr.on('data', (data) => {
       const chunk = data.toString();
       error += chunk;
-      // Log warnings but don't treat stderr as fatal if process succeeds
-      if (chunk.length > 200) {
-        console.warn('⚠️ LangGraph stderr:', chunk.substring(0, 200) + '...');
-      } else {
-        console.warn('⚠️ LangGraph stderr:', chunk);
-      }
+      console.error('⚠️ LangGraph stderr:', chunk);
     });
     
     pythonProcess.on('close', (code) => {
@@ -1235,8 +1335,21 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
       isProcessing = false;
       console.log('🏁 LangGraph process finished with code:', code);
       
+      // Cleanup uploaded file after processing
+      const cleanupFile = () => {
+        try {
+          if (fs.existsSync(csvFilePath)) {
+            fs.unlinkSync(csvFilePath);
+            console.log('🗑️ Cleaned up uploaded file:', csvFilePath);
+          }
+        } catch (cleanupError) {
+          console.error('Failed to cleanup file:', cleanupError);
+        }
+      };
+      
       if (code !== 0) {
         console.error('❌ LangGraph failed with exit code:', code);
+        cleanupFile();
         if (!res.headersSent) {
           return res.status(500).json({
             success: false,
@@ -1262,10 +1375,12 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         }
         
         if (!jsonResult) {
+          cleanupFile();
           throw new Error('No valid JSON result found in LangGraph output');
         }
         
         if (!jsonResult.success) {
+          cleanupFile();
           if (!res.headersSent) {
             return res.status(500).json({
               success: false,
@@ -1277,6 +1392,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         }
         
         console.log('✅ LangGraph AI Insights generated successfully');
+        cleanupFile();
         if (!res.headersSent) {
           res.json({
             success: true,
@@ -1290,6 +1406,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
       } catch (parseError) {
         console.error('❌ Failed to parse LangGraph results:', parseError);
         console.error('Raw output:', output);
+        cleanupFile();
         
         if (!res.headersSent) {
           res.status(500).json({
@@ -1304,6 +1421,234 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     
   } catch (error) {
     console.error('❌ AI Insights endpoint error:', error);
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        error: error.message,
+        stack: error.stack
+      });
+    }
+  }
+});
+
+// Interactive Q&A endpoint using LLM
+app.post('/api/ask-question', async (req, res) => {
+  console.log('🤖 Ask Question endpoint hit');
+  
+  try {
+    const { filename, question } = req.body;
+    
+    // Validate inputs
+    if (!filename) {
+      return res.status(400).json({
+        success: false,
+        error: 'Filename is required'
+      });
+    }
+    
+    if (!question || question.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Question is required'
+      });
+    }
+    
+    // Check if LLM API key is configured
+    const hasLLMKey = process.env.OPENAI_API_KEY || 
+                      process.env.GITHUB_TOKEN || 
+                      process.env.AZURE_OPENAI_ENDPOINT;
+    
+    if (!hasLLMKey) {
+      return res.status(503).json({
+        success: false,
+        error: 'LLM integration not configured. Please set OPENAI_API_KEY, GITHUB_TOKEN, or AZURE_OPENAI_ENDPOINT environment variable.',
+        hint: 'For free access, get a GitHub token and set GITHUB_TOKEN to use GitHub Models (GPT-4o free)'
+      });
+    }
+    
+    console.log(`📂 Question for file: ${filename}`);
+    console.log(`❓ User question: ${question}`);
+    
+    // Construct full path to uploaded CSV
+    const csvFilePath = path.join(__dirname, 'uploads', filename);
+    
+    // Verify file exists
+    if (!fs.existsSync(csvFilePath)) {
+      return res.status(404).json({
+        success: false,
+        error: 'CSV file not found',
+        filename: filename
+      });
+    }
+    
+    console.log(`✅ CSV file found: ${csvFilePath}`);
+    console.log(`🧠 Starting LLM Q&A with LangGraph...`);
+    
+    // Use LangGraph analyzer in 'chat' mode
+    const pythonScript = path.join(__dirname, 'scripts', 'langgraph_analyzer.py');
+    
+    const pythonArgs = [
+      pythonScript,
+      csvFilePath,
+      'chat',  // analysis_type
+      question // user_question
+    ];
+    
+    console.log(`🐍 Python command: ${PYTHON_EXECUTABLE} ${pythonArgs.join(' ')}`);
+    
+    const pythonProcess = spawn(PYTHON_EXECUTABLE, pythonArgs, {
+      env: {
+        ...process.env,
+        PYTHONUNBUFFERED: '1'
+      }
+    });
+    
+    let output = '';
+    let errorOutput = '';
+    let hardTimeout = null;
+    
+    // Set hard timeout (60 seconds for LLM processing)
+    hardTimeout = setTimeout(() => {
+      console.log('⏰ Hard timeout reached for LLM Q&A (60s)');
+      pythonProcess.kill('SIGTERM');
+      
+      if (!res.headersSent) {
+        res.status(408).json({
+          success: false,
+          error: 'LLM processing timeout after 60 seconds',
+          hint: 'Try asking a simpler question or reduce dataset size'
+        });
+      }
+    }, 60000);
+    
+    pythonProcess.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      console.log('🤖 LLM Output:', chunk);
+    });
+    
+    pythonProcess.stderr.on('data', (data) => {
+      const chunk = data.toString();
+      errorOutput += chunk;
+      console.error('⚠️ Python stderr:', chunk);
+    });
+    
+    pythonProcess.on('error', (error) => {
+      console.error('❌ Failed to start Python process:', error);
+      clearTimeout(hardTimeout);
+      
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          error: 'Failed to start LLM analyzer',
+          details: error.message
+        });
+      }
+    });
+    
+    pythonProcess.on('close', (code) => {
+      clearTimeout(hardTimeout);
+      console.log(`🐍 LangGraph LLM process exited with code ${code}`);
+      
+      if (res.headersSent) {
+        return;
+      }
+      
+      if (code !== 0) {
+        console.error('❌ LangGraph LLM process failed with error output:', errorOutput);
+        if (!res.headersSent) {
+          return res.status(500).json({
+            success: false,
+            error: 'LLM Q&A failed',
+            details: errorOutput || 'Python process exited with non-zero code',
+            code: code
+          });
+        }
+        return;
+      }
+      
+      try {
+        // Extract JSON result from output
+        let jsonResult = null;
+        const lines = output.split('\n');
+        
+        for (const line of lines) {
+          if (line.includes('RESULT_JSON:')) {
+            const jsonStr = line.replace('RESULT_JSON:', '').trim();
+            jsonResult = JSON.parse(jsonStr);
+            break;
+          }
+        }
+        
+        if (!jsonResult) {
+          throw new Error('No valid JSON result found in LangGraph LLM output');
+        }
+        
+        if (!jsonResult.success) {
+          const method = jsonResult.insights?.method;
+
+          if (method === 'provider_error') {
+            const llmAnswer = jsonResult.insights?.chat_response || jsonResult.error;
+            const provider = jsonResult.insights?.llm_provider;
+
+            if (!res.headersSent) {
+              return res.status(200).json({
+                success: false,
+                message: 'Primary LLM provider failed',
+                provider,
+                error: jsonResult.error || 'LLM provider error',
+                answer: llmAnswer,
+                metadata: jsonResult.metadata,
+                timestamp: new Date().toISOString()
+              });
+            }
+            return;
+          }
+
+          if (!res.headersSent) {
+            return res.status(500).json({
+              success: false,
+              error: jsonResult.error || 'LLM Q&A failed',
+              details: output.substring(0, 500)
+            });
+          }
+          return;
+        }
+        
+        console.log('✅ LLM answer generated successfully');
+        
+        // Extract the LLM response from insights
+        const llmAnswer = jsonResult.insights?.chat_response || 'No answer generated';
+        const userQuestion = jsonResult.insights?.user_question || question;
+        
+        if (!res.headersSent) {
+          res.json({
+            success: true,
+            message: 'Question answered successfully',
+            question: userQuestion,
+            answer: llmAnswer,
+            metadata: jsonResult.metadata,
+            timestamp: new Date().toISOString()
+          });
+        }
+        
+      } catch (parseError) {
+        console.error('❌ Failed to parse LangGraph LLM results:', parseError);
+        console.error('Raw output:', output);
+        
+        if (!res.headersSent) {
+          res.status(500).json({
+            success: false,
+            error: 'Failed to parse LLM response',
+            details: parseError.message,
+            rawOutput: output.substring(0, 1000)
+          });
+        }
+      }
+    });
+    
+  } catch (error) {
+    console.error('❌ Ask Question endpoint error:', error);
     if (!res.headersSent) {
       res.status(500).json({
         success: false,
@@ -1915,6 +2260,17 @@ async function saveCleanedCSV(data, filePath, headers) {
   await csvWriter.writeRecords(data);
 }
 
+function loadCSVFile(filePath) {
+  return new Promise((resolve, reject) => {
+    const rows = [];
+    fs.createReadStream(filePath)
+      .pipe(csv())
+      .on('data', (row) => rows.push(row))
+      .on('end', () => resolve(rows))
+      .on('error', (error) => reject(error));
+  });
+}
+
 // Helper functions for data analysis
 function detectDataType(values) {
   if (values.length === 0) return 'unknown';
@@ -2238,12 +2594,26 @@ function calculateDataQualityScore(data, headers) {
   return Math.round(totalScore / factors);
 }
 
-// Start server
-app.listen(PORT, () => {
-  console.log(`🚀 Data Processing API Server running on port ${PORT}`);
-  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
-  console.log(`🔗 API URL: http://localhost:${PORT}`);
-  console.log(`📁 Uploads directory: ${uploadsDir}`);
-});
+let serverInstance = null;
+
+const startServer = () => {
+  if (serverInstance) {
+    return serverInstance;
+  }
+
+  serverInstance = app.listen(PORT, () => {
+    console.log(`🚀 Data Processing API Server running on port ${PORT}`);
+    console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔗 API URL: http://localhost:${PORT}`);
+    console.log(`📁 Uploads directory: ${uploadsDir}`);
+  });
+
+  return serverInstance;
+};
+
+if (require.main === module) {
+  startServer();
+}
 
 module.exports = app;
+module.exports.startServer = startServer;
