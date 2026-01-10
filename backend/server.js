@@ -8,6 +8,7 @@ const fs = require('fs');
 const csv = require('csv-parser');
 const createCsvWriter = require('csv-writer').createObjectCsvWriter;
 const _ = require('lodash');
+const XLSX = require('xlsx');
 require('dotenv').config();
 
 // Firebase initialization
@@ -192,7 +193,7 @@ const storage = multer.diskStorage({
 const fileFilter = (req, file, cb) => {
   const allowedTypes = ['.csv', '.json', '.xlsx', '.arf'];
   const fileExtension = path.extname(file.originalname).toLowerCase();
-  
+
   if (allowedTypes.includes(fileExtension)) {
     cb(null, true);
   } else {
@@ -275,7 +276,7 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 app.post('/api/process', (req, res) => {
   try {
     const { filename, options = {} } = req.body;
-    
+
     if (!filename) {
       return res.status(400).json({
         success: false,
@@ -317,7 +318,7 @@ app.post('/api/process', (req, res) => {
 app.post('/api/analyze', (req, res) => {
   try {
     const { filename, analysisType = 'comprehensive' } = req.body;
-    
+
     if (!filename) {
       return res.status(400).json({
         success: false,
@@ -370,7 +371,7 @@ app.post('/api/analyze', (req, res) => {
 app.post('/api/visualize', (req, res) => {
   try {
     const { filename, chartType = 'all' } = req.body;
-    
+
     if (!filename) {
       return res.status(400).json({
         success: false,
@@ -405,7 +406,7 @@ app.post('/api/visualize', (req, res) => {
 app.post('/api/insights', (req, res) => {
   try {
     const { filename, analysisResults } = req.body;
-    
+
     if (!filename) {
       return res.status(400).json({
         success: false,
@@ -512,7 +513,7 @@ function generateScatterData() {
 function generateCorrelationHeatmap() {
   const variables = ['var1', 'var2', 'var3', 'var4', 'var5'];
   const matrix = [];
-  
+
   for (let i = 0; i < variables.length; i++) {
     const row = [];
     for (let j = 0; j < variables.length; j++) {
@@ -524,7 +525,7 @@ function generateCorrelationHeatmap() {
     }
     matrix.push(row);
   }
-  
+
   return { variables, matrix };
 }
 
@@ -540,7 +541,7 @@ function generatePieChartData() {
 function generateLineChartData() {
   const data = [];
   let value = 100;
-  
+
   for (let i = 0; i < 30; i++) {
     value += (Math.random() - 0.5) * 10;
     data.push({
@@ -548,7 +549,7 @@ function generateLineChartData() {
       value: Math.max(0, value)
     });
   }
-  
+
   return data;
 }
 
@@ -565,7 +566,6 @@ function generateBarChartData() {
 
 // Parse CSV and analyze data quality
 app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
-  if (!ensureFirestore(res)) return;
   try {
     if (!req.file) {
       return res.status(400).json({
@@ -575,50 +575,58 @@ app.post('/api/analyze-csv', upload.single('file'), async (req, res) => {
     }
 
     const filePath = req.file.path;
+    const hasFirestore = !!firestore;
     const jobId = `job_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-    const jobRecord = {
-      jobId,
-      fileName: req.file.filename,
-      originalFileName: req.file.originalname,
-      status: 'processing',
-      metadata: {
-        fileSize: req.file.size,
-        uploadedAt: new Date().toISOString()
-      },
-      createdAt: FieldValue.serverTimestamp(),
-      updatedAt: FieldValue.serverTimestamp()
-    };
+    if (hasFirestore) {
+      const jobRecord = {
+        jobId,
+        fileName: req.file.filename,
+        originalFileName: req.file.originalname,
+        status: 'processing',
+        metadata: {
+          fileSize: req.file.size,
+          uploadedAt: new Date().toISOString()
+        },
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
+      };
 
-    await jobsCollection.doc(jobId).set(jobRecord);
-    
+      await jobsCollection.doc(jobId).set(jobRecord);
+    }
+
     try {
       const analysis = await analyzeCSVQuality(filePath);
-      
-      // Update job with analysis results
-      await jobsCollection.doc(jobId).update({
-        status: 'completed',
-        'metadata.processedAt': new Date().toISOString(),
-        analysisResults: analysis,
-        updatedAt: FieldValue.serverTimestamp()
-      });
-      
+
+      if (hasFirestore) {
+        await jobsCollection.doc(jobId).update({
+          status: 'completed',
+          'metadata.processedAt': new Date().toISOString(),
+          analysisResults: analysis,
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      }
+
       res.json({
         success: true,
         message: 'CSV analysis completed',
         filename: req.file.filename,
         originalName: req.file.originalname,
-        jobId: jobId,
-        fileId: jobId, // For backward compatibility
-        analysis: analysis
+        jobId: hasFirestore ? jobId : null,
+        fileId: hasFirestore ? jobId : null, // For backward compatibility
+        analysis: analysis,
+        previewData: analysis.previewData,
+        headers: analysis.headers
       });
 
     } catch (analysisError) {
-      await jobsCollection.doc(jobId).update({
-        status: 'failed',
-        errorMessage: analysisError.message,
-        updatedAt: FieldValue.serverTimestamp()
-      });
+      if (hasFirestore) {
+        await jobsCollection.doc(jobId).update({
+          status: 'failed',
+          errorMessage: analysisError.message,
+          updatedAt: FieldValue.serverTimestamp()
+        });
+      }
       throw analysisError;
     }
 
@@ -635,11 +643,11 @@ app.post('/api/clean-csv', async (req, res) => {
   if (!ensureFirestore(res)) return;
   try {
     const { fileId, filename, cleaningOptions = {} } = req.body;
-    
+
     // Find job by ID if provided, otherwise use filename
     let jobRecord = null;
     let filePath = null;
-    
+
     if (fileId) {
       const jobDoc = await jobsCollection.doc(fileId).get();
       if (!jobDoc.exists) {
@@ -753,7 +761,7 @@ app.get('/api/download/:filename', (req, res) => {
   try {
     const filename = req.params.filename;
     const filePath = path.join(uploadsDir, filename);
-    
+
     if (!fs.existsSync(filePath)) {
       return res.status(404).json({
         success: false,
@@ -890,7 +898,7 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
 
     const csvFilePath = req.file.path;
     const outputDir = path.join(__dirname, 'visualizations', 'autoviz', Date.now().toString());
-    
+
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -899,36 +907,36 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
     // Execute AutoViz Python script
     const { spawn } = require('child_process');
     const pythonScript = path.join(__dirname, 'scripts', 'autoviz_generator.py');
-    
+
     console.log('🎨 Starting AutoViz generation...');
     console.log('📁 CSV File:', csvFilePath);
     console.log('📁 Output Dir:', outputDir);
     console.log('🐍 Python Script:', pythonScript);
-    
+
     // Use the correct conda Python environment
     const pythonProcess = spawn('C:/Users/4236h/anaconda3/Scripts/conda.exe', [
-      'run', '-p', 'C:\\Users\\4236h\\anaconda3', '--no-capture-output', 
+      'run', '-p', 'C:\\Users\\4236h\\anaconda3', '--no-capture-output',
       'python', pythonScript, csvFilePath, outputDir
     ]);
-    
+
     let output = '';
     let error = '';
-    
+
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       output += chunk;
       console.log('📊 AutoViz Output:', chunk);
     });
-    
+
     pythonProcess.stderr.on('data', (data) => {
       const chunk = data.toString();
       error += chunk;
       console.error('❌ AutoViz Error:', chunk);
     });
-    
+
     pythonProcess.on('close', (code) => {
       console.log('🏁 AutoViz process finished with code:', code);
-      
+
       if (code !== 0) {
         console.error('❌ AutoViz failed with exit code:', code);
         console.error('❌ Error output:', error);
@@ -939,16 +947,16 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
           code: code
         });
       }
-      
+
       try {
         console.log('📋 AutoViz Raw output length:', output.length);
         console.log('📋 AutoViz Raw output preview (first 500 chars):', output.substring(0, 500));
         console.log('📋 AutoViz Raw output preview (last 500 chars):', output.substring(Math.max(0, output.length - 500)));
-        
+
         // Enhanced JSON extraction with multiple strategies
         let jsonStr = '';
         let extractionMethod = '';
-        
+
         // Strategy 1: Look for the last complete JSON object using brace counting
         const lines = output.split('\n');
         for (let i = lines.length - 1; i >= 0 && !jsonStr; i--) {
@@ -959,12 +967,12 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             for (let j = i; j >= 0; j--) {
               const currentLine = lines[j];
               jsonLines.unshift(currentLine);
-              
+
               for (let char of currentLine) {
                 if (char === '}') braceCount++;
                 if (char === '{') braceCount--;
               }
-              
+
               if (braceCount === 0 && currentLine.includes('{')) {
                 jsonStr = jsonLines.join('\n').trim();
                 extractionMethod = 'reverse-brace-counting';
@@ -973,7 +981,7 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             }
           }
         }
-        
+
         // Strategy 2: Look for JSON patterns in the output
         if (!jsonStr) {
           const jsonPatterns = [
@@ -981,7 +989,7 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             /(\{[\s\S]*?"charts_generated"[\s\S]*?\})/,
             /(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g
           ];
-          
+
           for (const pattern of jsonPatterns) {
             const matches = output.match(pattern);
             if (matches) {
@@ -991,12 +999,12 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             }
           }
         }
-        
+
         // Strategy 3: Find JSON between specific markers
         if (!jsonStr) {
           const startMarkers = ['{', 'JSON_START:', 'RESULT:'];
           const endMarkers = ['}', 'JSON_END'];
-          
+
           for (const startMarker of startMarkers) {
             for (const endMarker of endMarkers) {
               const startIdx = output.lastIndexOf(startMarker);
@@ -1012,15 +1020,15 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             if (jsonStr) break;
           }
         }
-        
+
         if (!jsonStr) {
           throw new Error('No valid JSON found in Python output');
         }
-        
+
         console.log(`🔍 AutoViz Extracted JSON using ${extractionMethod}:`, jsonStr.substring(0, 200) + '...');
         const result = JSON.parse(jsonStr);
         console.log('✅ AutoViz Parsed result:', result);
-        
+
         if (result.status === 'error') {
           return res.status(500).json({
             success: false,
@@ -1028,11 +1036,11 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
             details: result
           });
         }
-        
+
         // Generate URLs for accessing visualizations
         const baseUrl = `/api/visualizations/autoviz/${path.basename(outputDir)}`;
         const visualizationUrls = result.chart_files?.map(file => `${baseUrl}/${file}`) || [];
-        
+
         res.json({
           success: true,
           message: 'AutoViz visualizations generated successfully',
@@ -1041,7 +1049,7 @@ app.post('/api/generate-autoviz', upload.single('file'), async (req, res) => {
           chartsGenerated: result.charts_generated,
           summary: result.summary
         });
-        
+
       } catch (parseError) {
         console.error('❌ JSON parse error:', parseError);
         console.error('❌ Raw output that failed to parse:', output);
@@ -1079,7 +1087,7 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
     const csvFilePath = req.file.path;
     const targetColumn = req.body.targetColumn || null;
     const outputDir = path.join(__dirname, 'visualizations', 'sweetviz', Date.now().toString());
-    
+
     // Ensure output directory exists
     if (!fs.existsSync(outputDir)) {
       fs.mkdirSync(outputDir, { recursive: true });
@@ -1088,38 +1096,38 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
     // Execute SweetViz Python script
     const { spawn } = require('child_process');
     const pythonScript = path.join(__dirname, 'scripts', 'sweetviz_generator.py');
-    
+
     const args = ['run', '-p', 'C:\\Users\\4236h\\anaconda3', '--no-capture-output', 'python', pythonScript, csvFilePath, outputDir];
     if (targetColumn) {
       args.push(targetColumn);
     }
-    
+
     console.log('📊 Starting SweetViz generation...');
     console.log('📁 CSV File:', csvFilePath);
     console.log('📁 Output Dir:', outputDir);
     console.log('🎯 Target Column:', targetColumn || 'None');
     console.log('🐍 Python Script:', pythonScript);
-    
+
     const pythonProcess = spawn('C:/Users/4236h/anaconda3/Scripts/conda.exe', args);
-    
+
     let output = '';
     let error = '';
-    
+
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       output += chunk;
       console.log('📈 SweetViz Output:', chunk);
     });
-    
+
     pythonProcess.stderr.on('data', (data) => {
       const chunk = data.toString();
       error += chunk;
       console.error('❌ SweetViz Error:', chunk);
     });
-    
+
     pythonProcess.on('close', (code) => {
       console.log('🏁 SweetViz process finished with code:', code);
-      
+
       if (code !== 0) {
         console.error('❌ SweetViz failed with exit code:', code);
         console.error('❌ Error output:', error);
@@ -1130,16 +1138,16 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
           code: code
         });
       }
-      
+
       try {
         console.log('📋 SweetViz Raw output length:', output.length);
         console.log('📋 SweetViz Raw output preview (first 500 chars):', output.substring(0, 500));
         console.log('📋 SweetViz Raw output preview (last 500 chars):', output.substring(Math.max(0, output.length - 500)));
-        
+
         // Enhanced JSON extraction with multiple strategies
         let jsonStr = '';
         let extractionMethod = '';
-        
+
         // Strategy 1: Look for the last complete JSON object using brace counting
         const lines = output.split('\n');
         for (let i = lines.length - 1; i >= 0 && !jsonStr; i--) {
@@ -1150,12 +1158,12 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             for (let j = i; j >= 0; j--) {
               const currentLine = lines[j];
               jsonLines.unshift(currentLine);
-              
+
               for (let char of currentLine) {
                 if (char === '}') braceCount++;
                 if (char === '{') braceCount--;
               }
-              
+
               if (braceCount === 0 && currentLine.includes('{')) {
                 jsonStr = jsonLines.join('\n').trim();
                 extractionMethod = 'reverse-brace-counting';
@@ -1164,7 +1172,7 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             }
           }
         }
-        
+
         // Strategy 2: Look for JSON patterns in the output
         if (!jsonStr) {
           const jsonPatterns = [
@@ -1172,7 +1180,7 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             /(\{[\s\S]*?"report_generated"[\s\S]*?\})/,
             /(\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\})/g
           ];
-          
+
           for (const pattern of jsonPatterns) {
             const matches = output.match(pattern);
             if (matches) {
@@ -1182,12 +1190,12 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             }
           }
         }
-        
+
         // Strategy 3: Find JSON between specific markers
         if (!jsonStr) {
           const startMarkers = ['{', 'JSON_START:', 'RESULT:'];
           const endMarkers = ['}', 'JSON_END'];
-          
+
           for (const startMarker of startMarkers) {
             for (const endMarker of endMarkers) {
               const startIdx = output.lastIndexOf(startMarker);
@@ -1203,15 +1211,15 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             if (jsonStr) break;
           }
         }
-        
+
         if (!jsonStr) {
           throw new Error('No valid JSON found in Python output');
         }
-        
+
         console.log(`🔍 SweetViz Extracted JSON using ${extractionMethod}:`, jsonStr.substring(0, 200) + '...');
         const result = JSON.parse(jsonStr);
         console.log('✅ SweetViz Parsed result:', result);
-        
+
         if (result.status === 'error') {
           return res.status(500).json({
             success: false,
@@ -1219,12 +1227,12 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
             details: result
           });
         }
-        
+
         // Generate URLs for accessing reports
         const baseUrl = `/api/visualizations/sweetviz/${path.basename(outputDir)}`;
         const mainReportUrl = `${baseUrl}/${result.main_report}`;
         const comparisonUrls = result.comparison_reports?.map(file => `${baseUrl}/${file}`) || [];
-        
+
         res.json({
           success: true,
           message: 'SweetViz analysis report generated successfully',
@@ -1234,7 +1242,7 @@ app.post('/api/generate-sweetviz', upload.single('file'), async (req, res) => {
           summaryStats: result.summary_stats,
           dataInsights: result.data_insights
         });
-        
+
       } catch (parseError) {
         console.error('❌ JSON parse error:', parseError);
         console.error('❌ Raw output that failed to parse:', output);
@@ -1269,11 +1277,11 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     }
 
     const csvFilePath = req.file.path;
-    
+
     // Strict validation: Use allowlist for analysis type (security: prevent command injection)
     const requestedAnalysisType = req.body.analysisType;
     let analysisType = 'summary'; // Default fallback
-    
+
     if (requestedAnalysisType) {
       // Check against allowlist of valid types
       if (VALID_ANALYSIS_TYPES.includes(requestedAnalysisType)) {
@@ -1287,7 +1295,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         });
       }
     }
-    
+
     console.log('🤖 Starting LangGraph AI Insights generation...');
     console.log('📁 CSV File:', csvFilePath);
     console.log('🧠 Analysis Type:', analysisType);
@@ -1295,7 +1303,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     // Execute LangGraph analyzer Python script
     const { spawn } = require('child_process');
     const pythonScript = path.join(__dirname, 'scripts', 'langgraph_analyzer.py');
-    
+
     // Use configured Python interpreter to run LangGraph analyzer
     // Note: Using manual hardTimeout below instead of spawn's timeout option
     const pythonProcess = spawn(PYTHON_EXECUTABLE, [
@@ -1303,11 +1311,11 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
     ], {
       maxBuffer: 10 * 1024 * 1024 // 10MB buffer for large outputs
     });
-    
+
     let output = '';
     let error = '';
     let isProcessing = true;
-    
+
     // Set a hard timeout for the entire operation (2 minutes)
     const hardTimeout = setTimeout(() => {
       if (isProcessing) {
@@ -1315,26 +1323,26 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         pythonProcess.kill();
       }
     }, 120000);
-    
+
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       output += chunk;
       console.log('🤖 LangGraph Output:', chunk);
     });
-    
+
     pythonProcess.stderr.on('data', (data) => {
       const chunk = data.toString();
       error += chunk;
       console.error('⚠️ LangGraph stderr:', chunk);
     });
-    
+
     pythonProcess.on('close', (code) => {
       clearTimeout(hardTimeout);
       if (!isProcessing) return; // Already timed out
-      
+
       isProcessing = false;
       console.log('🏁 LangGraph process finished with code:', code);
-      
+
       // Cleanup uploaded file after processing
       const cleanupFile = () => {
         try {
@@ -1346,7 +1354,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
           console.error('Failed to cleanup file:', cleanupError);
         }
       };
-      
+
       if (code !== 0) {
         console.error('❌ LangGraph failed with exit code:', code);
         cleanupFile();
@@ -1360,12 +1368,12 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         }
         return;
       }
-      
+
       try {
         // Extract JSON result from output
         let jsonResult = null;
         const lines = output.split('\n');
-        
+
         for (const line of lines) {
           if (line.includes('RESULT_JSON:')) {
             const jsonStr = line.replace('RESULT_JSON:', '').trim();
@@ -1373,12 +1381,12 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
             break;
           }
         }
-        
+
         if (!jsonResult) {
           cleanupFile();
           throw new Error('No valid JSON result found in LangGraph output');
         }
-        
+
         if (!jsonResult.success) {
           cleanupFile();
           if (!res.headersSent) {
@@ -1390,7 +1398,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
           }
           return;
         }
-        
+
         console.log('✅ LangGraph AI Insights generated successfully');
         cleanupFile();
         if (!res.headersSent) {
@@ -1402,12 +1410,12 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
             timestamp: new Date().toISOString()
           });
         }
-        
+
       } catch (parseError) {
         console.error('❌ Failed to parse LangGraph results:', parseError);
         console.error('Raw output:', output);
         cleanupFile();
-        
+
         if (!res.headersSent) {
           res.status(500).json({
             success: false,
@@ -1418,7 +1426,7 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
         }
       }
     });
-    
+
   } catch (error) {
     console.error('❌ AI Insights endpoint error:', error);
     if (!res.headersSent) {
@@ -1434,10 +1442,10 @@ app.post('/api/generate-ai-insights', upload.single('file'), async (req, res) =>
 // Interactive Q&A endpoint using LLM
 app.post('/api/ask-question', async (req, res) => {
   console.log('🤖 Ask Question endpoint hit');
-  
+
   try {
     const { filename, question } = req.body;
-    
+
     // Validate inputs
     if (!filename) {
       return res.status(400).json({
@@ -1445,19 +1453,19 @@ app.post('/api/ask-question', async (req, res) => {
         error: 'Filename is required'
       });
     }
-    
+
     if (!question || question.trim().length === 0) {
       return res.status(400).json({
         success: false,
         error: 'Question is required'
       });
     }
-    
+
     // Check if LLM API key is configured
-    const hasLLMKey = process.env.OPENAI_API_KEY || 
-                      process.env.GITHUB_TOKEN || 
-                      process.env.AZURE_OPENAI_ENDPOINT;
-    
+    const hasLLMKey = process.env.OPENAI_API_KEY ||
+      process.env.GITHUB_TOKEN ||
+      process.env.AZURE_OPENAI_ENDPOINT;
+
     if (!hasLLMKey) {
       return res.status(503).json({
         success: false,
@@ -1465,13 +1473,13 @@ app.post('/api/ask-question', async (req, res) => {
         hint: 'For free access, get a GitHub token and set GITHUB_TOKEN to use GitHub Models (GPT-4o free)'
       });
     }
-    
+
     console.log(`📂 Question for file: ${filename}`);
     console.log(`❓ User question: ${question}`);
-    
+
     // Construct full path to uploaded CSV
     const csvFilePath = path.join(__dirname, 'uploads', filename);
-    
+
     // Verify file exists
     if (!fs.existsSync(csvFilePath)) {
       return res.status(404).json({
@@ -1480,38 +1488,38 @@ app.post('/api/ask-question', async (req, res) => {
         filename: filename
       });
     }
-    
+
     console.log(`✅ CSV file found: ${csvFilePath}`);
     console.log(`🧠 Starting LLM Q&A with LangGraph...`);
-    
+
     // Use LangGraph analyzer in 'chat' mode
     const pythonScript = path.join(__dirname, 'scripts', 'langgraph_analyzer.py');
-    
+
     const pythonArgs = [
       pythonScript,
       csvFilePath,
       'chat',  // analysis_type
       question // user_question
     ];
-    
+
     console.log(`🐍 Python command: ${PYTHON_EXECUTABLE} ${pythonArgs.join(' ')}`);
-    
+
     const pythonProcess = spawn(PYTHON_EXECUTABLE, pythonArgs, {
       env: {
         ...process.env,
         PYTHONUNBUFFERED: '1'
       }
     });
-    
+
     let output = '';
     let errorOutput = '';
     let hardTimeout = null;
-    
+
     // Set hard timeout (60 seconds for LLM processing)
     hardTimeout = setTimeout(() => {
       console.log('⏰ Hard timeout reached for LLM Q&A (60s)');
       pythonProcess.kill('SIGTERM');
-      
+
       if (!res.headersSent) {
         res.status(408).json({
           success: false,
@@ -1520,23 +1528,23 @@ app.post('/api/ask-question', async (req, res) => {
         });
       }
     }, 60000);
-    
+
     pythonProcess.stdout.on('data', (data) => {
       const chunk = data.toString();
       output += chunk;
       console.log('🤖 LLM Output:', chunk);
     });
-    
+
     pythonProcess.stderr.on('data', (data) => {
       const chunk = data.toString();
       errorOutput += chunk;
       console.error('⚠️ Python stderr:', chunk);
     });
-    
+
     pythonProcess.on('error', (error) => {
       console.error('❌ Failed to start Python process:', error);
       clearTimeout(hardTimeout);
-      
+
       if (!res.headersSent) {
         res.status(500).json({
           success: false,
@@ -1545,15 +1553,15 @@ app.post('/api/ask-question', async (req, res) => {
         });
       }
     });
-    
+
     pythonProcess.on('close', (code) => {
       clearTimeout(hardTimeout);
       console.log(`🐍 LangGraph LLM process exited with code ${code}`);
-      
+
       if (res.headersSent) {
         return;
       }
-      
+
       if (code !== 0) {
         console.error('❌ LangGraph LLM process failed with error output:', errorOutput);
         if (!res.headersSent) {
@@ -1566,12 +1574,12 @@ app.post('/api/ask-question', async (req, res) => {
         }
         return;
       }
-      
+
       try {
         // Extract JSON result from output
         let jsonResult = null;
         const lines = output.split('\n');
-        
+
         for (const line of lines) {
           if (line.includes('RESULT_JSON:')) {
             const jsonStr = line.replace('RESULT_JSON:', '').trim();
@@ -1579,11 +1587,11 @@ app.post('/api/ask-question', async (req, res) => {
             break;
           }
         }
-        
+
         if (!jsonResult) {
           throw new Error('No valid JSON result found in LangGraph LLM output');
         }
-        
+
         if (!jsonResult.success) {
           const method = jsonResult.insights?.method;
 
@@ -1614,13 +1622,13 @@ app.post('/api/ask-question', async (req, res) => {
           }
           return;
         }
-        
+
         console.log('✅ LLM answer generated successfully');
-        
+
         // Extract the LLM response from insights
         const llmAnswer = jsonResult.insights?.chat_response || 'No answer generated';
         const userQuestion = jsonResult.insights?.user_question || question;
-        
+
         if (!res.headersSent) {
           res.json({
             success: true,
@@ -1631,11 +1639,11 @@ app.post('/api/ask-question', async (req, res) => {
             timestamp: new Date().toISOString()
           });
         }
-        
+
       } catch (parseError) {
         console.error('❌ Failed to parse LangGraph LLM results:', parseError);
         console.error('Raw output:', output);
-        
+
         if (!res.headersSent) {
           res.status(500).json({
             success: false,
@@ -1646,7 +1654,7 @@ app.post('/api/ask-question', async (req, res) => {
         }
       }
     });
-    
+
   } catch (error) {
     console.error('❌ Ask Question endpoint error:', error);
     if (!res.headersSent) {
@@ -1768,7 +1776,7 @@ app.use('/api/visualizations', express.static(vizRoot));
 app.post('/api/tableau/publish', async (req, res) => {
   try {
     const { dataSource, workbookName, projectName } = req.body;
-    
+
     if (!dataSource || !workbookName) {
       return res.status(400).json({
         success: false,
@@ -1846,165 +1854,183 @@ app.get('/api/tableau/dashboards', async (req, res) => {
 // Data Cleaning Utility Functions
 
 async function analyzeCSVQuality(filePath) {
-  return new Promise((resolve, reject) => {
-    const results = [];
-    const analysis = {
-      totalRows: 0,
-      totalColumns: 0,
-      missingValues: {},
-      duplicates: 0,
-      dataTypes: {},
-      outliers: {},
-      summary: {},
-      correlations: {},
-      qualityMetrics: {
-        completeness: 0,
-        consistency: 0,
-        accuracy: 0,
-        validity: 0,
-        uniqueness: 0,
-        overallScore: 0
-      },
-      recommendations: []
+  const results = await loadCSVFile(filePath);
+  const analysis = {
+    totalRows: 0,
+    totalColumns: 0,
+    missingValues: {},
+    duplicates: 0,
+    dataTypes: {},
+    outliers: {},
+    summary: {},
+    correlations: {},
+    qualityMetrics: {
+      completeness: 0,
+      consistency: 0,
+      accuracy: 0,
+      validity: 0,
+      uniqueness: 0,
+      overallScore: 0
+    },
+    recommendations: []
+  };
+
+  analysis.totalRows = results.length;
+
+  if (results.length === 0) {
+    return analysis;
+  }
+
+  const headerSet = new Set();
+  results.forEach((row) => {
+    Object.keys(row || {}).forEach((key) => headerSet.add(key));
+  });
+
+  if (headerSet.size === 0) {
+    return analysis;
+  }
+
+  const headers = Array.from(headerSet);
+
+  const normalizedResults = results.map((row) => {
+    const normalized = {};
+    headers.forEach((header) => {
+      const value = row && Object.prototype.hasOwnProperty.call(row, header) ? row[header] : '';
+      if (value === null || value === undefined) {
+        normalized[header] = '';
+      } else if (typeof value === 'string') {
+        normalized[header] = value;
+      } else {
+        normalized[header] = value.toString();
+      }
+    });
+    return normalized;
+  });
+
+  analysis.totalColumns = headers.length;
+
+  let totalMissingValues = 0;
+  headers.forEach((column) => {
+    const missingCount = normalizedResults.filter((row) => {
+      const cellValue = row[column] ?? '';
+      const trimmed = cellValue.toString().trim();
+      return trimmed === '' || trimmed.toLowerCase() === 'null';
+    }).length;
+
+    analysis.missingValues[column] = {
+      count: missingCount,
+      percentage: normalizedResults.length === 0 ? '0.00' : ((missingCount / normalizedResults.length) * 100).toFixed(2)
     };
 
-    fs.createReadStream(filePath)
-      .pipe(csv())
-      .on('data', (row) => {
-        results.push(row);
-      })
-      .on('end', () => {
-        try {
-          analysis.totalRows = results.length;
-          if (results.length > 0) {
-            analysis.totalColumns = Object.keys(results[0]).length;
-            const headers = Object.keys(results[0]);
-            
-            // Analyze missing values and completeness
-            let totalMissingValues = 0;
-            headers.forEach(column => {
-              const missingCount = results.filter(row => 
-                !row[column] || row[column].trim() === '' || row[column].toLowerCase() === 'null'
-              ).length;
-              analysis.missingValues[column] = {
-                count: missingCount,
-                percentage: ((missingCount / results.length) * 100).toFixed(2)
-              };
-              totalMissingValues += missingCount;
-            });
-
-            // Calculate completeness score
-            const totalCells = results.length * headers.length;
-            analysis.qualityMetrics.completeness = ((totalCells - totalMissingValues) / totalCells * 100).toFixed(2);
-
-            // Detect data types and validate consistency
-            let consistencyIssues = 0;
-            headers.forEach(column => {
-              const values = results.map(row => row[column]).filter(val => val && val.trim() !== '');
-              const detectedType = detectDataType(values);
-              analysis.dataTypes[column] = detectedType;
-              
-              // Check data type consistency
-              if (detectedType === 'mixed') {
-                consistencyIssues++;
-              }
-            });
-
-            analysis.qualityMetrics.consistency = (((headers.length - consistencyIssues) / headers.length) * 100).toFixed(2);
-
-            // Check for duplicates and calculate uniqueness
-            const uniqueRows = _.uniqBy(results, row => JSON.stringify(row));
-            analysis.duplicates = results.length - uniqueRows.length;
-            analysis.qualityMetrics.uniqueness = ((uniqueRows.length / results.length) * 100).toFixed(2);
-
-            // Analyze numeric columns for statistics and outliers
-            const numericColumns = [];
-            headers.forEach(column => {
-              if (analysis.dataTypes[column] === 'numeric') {
-                numericColumns.push(column);
-                const numericValues = results
-                  .map(row => parseFloat(row[column]))
-                  .filter(val => !isNaN(val));
-                
-                if (numericValues.length > 0) {
-                  const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
-                  const std = calculateStandardDeviation(numericValues);
-                  const sorted = [...numericValues].sort((a, b) => a - b);
-                  const q1 = percentile(sorted, 25);
-                  const q3 = percentile(sorted, 75);
-                  const median = percentile(sorted, 50);
-
-                  analysis.summary[column] = {
-                    count: numericValues.length,
-                    mean: mean.toFixed(2),
-                    median: median.toFixed(2),
-                    min: Math.min(...numericValues),
-                    max: Math.max(...numericValues),
-                    std: std.toFixed(2),
-                    q1: q1.toFixed(2),
-                    q3: q3.toFixed(2),
-                    skewness: calculateSkewness(numericValues, mean, std).toFixed(2),
-                    kurtosis: calculateKurtosis(numericValues, mean, std).toFixed(2)
-                  };
-
-                  // Advanced outlier detection using IQR and Z-score methods
-                  const outliers = detectAdvancedOutliers(numericValues);
-                  analysis.outliers[column] = {
-                    count: outliers.iqr.length + outliers.zscore.length,
-                    iqrOutliers: outliers.iqr.slice(0, 5),
-                    zscoreOutliers: outliers.zscore.slice(0, 5),
-                    percentage: (((outliers.iqr.length + outliers.zscore.length) / numericValues.length) * 100).toFixed(2)
-                  };
-                }
-              }
-            });
-
-            // Calculate correlations between numeric columns
-            if (numericColumns.length > 1) {
-              for (let i = 0; i < numericColumns.length; i++) {
-                for (let j = i + 1; j < numericColumns.length; j++) {
-                  const col1 = numericColumns[i];
-                  const col2 = numericColumns[j];
-                  const correlation = calculateCorrelation(results, col1, col2);
-                  if (!analysis.correlations[col1]) analysis.correlations[col1] = {};
-                  analysis.correlations[col1][col2] = correlation.toFixed(3);
-                }
-              }
-            }
-
-            // Validate data patterns and calculate accuracy
-            let validityScore = 100;
-            headers.forEach(column => {
-              const values = results.map(row => row[column]).filter(val => val && val.trim() !== '');
-              const invalidCount = validateDataPattern(values, analysis.dataTypes[column]);
-              if (invalidCount > 0) {
-                validityScore -= (invalidCount / values.length) * 20; // Reduce score based on invalid data
-              }
-            });
-            analysis.qualityMetrics.validity = Math.max(0, validityScore).toFixed(2);
-
-            // Calculate overall quality score
-            const scores = [
-              parseFloat(analysis.qualityMetrics.completeness),
-              parseFloat(analysis.qualityMetrics.consistency),
-              parseFloat(analysis.qualityMetrics.validity),
-              parseFloat(analysis.qualityMetrics.uniqueness)
-            ];
-            analysis.qualityMetrics.overallScore = (scores.reduce((a, b) => a + b, 0) / scores.length).toFixed(2);
-
-            // Generate recommendations
-            analysis.recommendations = generateDataQualityRecommendations(analysis);
-          }
-          
-          resolve(analysis);
-        } catch (error) {
-          reject(error);
-        }
-      })
-      .on('error', (error) => {
-        reject(error);
-      });
+    totalMissingValues += missingCount;
   });
+
+  const totalCells = normalizedResults.length * headers.length;
+  analysis.qualityMetrics.completeness = totalCells === 0
+    ? '0.00'
+    : ((totalCells - totalMissingValues) / totalCells * 100).toFixed(2);
+
+  let consistencyIssues = 0;
+  headers.forEach((column) => {
+    const values = normalizedResults
+      .map((row) => row[column])
+      .filter((val) => val !== undefined && val !== null && val.toString().trim() !== '');
+    const detectedType = detectDataType(values);
+    analysis.dataTypes[column] = detectedType;
+
+    if (detectedType === 'mixed') {
+      consistencyIssues += 1;
+    }
+  });
+
+  analysis.qualityMetrics.consistency = headers.length === 0
+    ? '0.00'
+    : (((headers.length - consistencyIssues) / headers.length) * 100).toFixed(2);
+
+  const uniqueRows = _.uniqBy(normalizedResults, (row) => JSON.stringify(row));
+  analysis.duplicates = normalizedResults.length - uniqueRows.length;
+  analysis.qualityMetrics.uniqueness = normalizedResults.length === 0
+    ? '0.00'
+    : ((uniqueRows.length / normalizedResults.length) * 100).toFixed(2);
+
+  const numericColumns = [];
+  headers.forEach((column) => {
+    if (analysis.dataTypes[column] === 'numeric') {
+      numericColumns.push(column);
+      const numericValues = normalizedResults
+        .map((row) => parseFloat(row[column]))
+        .filter((val) => !isNaN(val));
+
+      if (numericValues.length > 0) {
+        const mean = numericValues.reduce((a, b) => a + b, 0) / numericValues.length;
+        const std = calculateStandardDeviation(numericValues);
+        const sorted = [...numericValues].sort((a, b) => a - b);
+        const q1 = percentile(sorted, 25);
+        const q3 = percentile(sorted, 75);
+        const median = percentile(sorted, 50);
+
+        analysis.summary[column] = {
+          count: numericValues.length,
+          mean: mean.toFixed(2),
+          median: median.toFixed(2),
+          min: Math.min(...numericValues),
+          max: Math.max(...numericValues),
+          std: std.toFixed(2),
+          q1: q1.toFixed(2),
+          q3: q3.toFixed(2),
+          skewness: calculateSkewness(numericValues, mean, std).toFixed(2),
+          kurtosis: calculateKurtosis(numericValues, mean, std).toFixed(2)
+        };
+
+        const outliers = detectAdvancedOutliers(numericValues);
+        analysis.outliers[column] = {
+          count: outliers.iqr.length + outliers.zscore.length,
+          iqrOutliers: outliers.iqr.slice(0, 5),
+          zscoreOutliers: outliers.zscore.slice(0, 5),
+          percentage: (((outliers.iqr.length + outliers.zscore.length) / numericValues.length) * 100).toFixed(2)
+        };
+      }
+    }
+  });
+
+  if (numericColumns.length > 1) {
+    for (let i = 0; i < numericColumns.length; i += 1) {
+      for (let j = i + 1; j < numericColumns.length; j += 1) {
+        const col1 = numericColumns[i];
+        const col2 = numericColumns[j];
+        const correlation = calculateCorrelation(normalizedResults, col1, col2);
+        if (!analysis.correlations[col1]) analysis.correlations[col1] = {};
+        analysis.correlations[col1][col2] = correlation.toFixed(3);
+      }
+    }
+  }
+
+  let validityScore = 100;
+  headers.forEach((column) => {
+    const values = normalizedResults
+      .map((row) => row[column])
+      .filter((val) => val !== undefined && val !== null && val.toString().trim() !== '');
+    const invalidCount = validateDataPattern(values, analysis.dataTypes[column]);
+    if (invalidCount > 0 && values.length > 0) {
+      validityScore -= (invalidCount / values.length) * 20;
+    }
+  });
+  analysis.qualityMetrics.validity = Math.max(0, validityScore).toFixed(2);
+
+  const scores = [
+    parseFloat(analysis.qualityMetrics.completeness),
+    parseFloat(analysis.qualityMetrics.consistency),
+    parseFloat(analysis.qualityMetrics.validity),
+    parseFloat(analysis.qualityMetrics.uniqueness)
+  ];
+  const overall = scores.length > 0 ? (scores.reduce((a, b) => a + b, 0) / scores.length) : 0;
+  analysis.qualityMetrics.overallScore = overall.toFixed(2);
+
+  analysis.recommendations = generateDataQualityRecommendations(analysis);
+  analysis.previewData = normalizedResults.slice(0, 200);
+  analysis.headers = headers;
+
+  return analysis;
 }
 
 async function cleanCSVData(filePath, options = {}) {
@@ -2047,14 +2073,14 @@ async function cleanCSVData(filePath, options = {}) {
 
             if (missingIndices.length > 0) {
               const dataType = detectDataType(cleanedData.map(row => row[column]).filter(val => val && val.trim() !== ''));
-              
+
               if (dataType === 'numeric') {
                 // Fill with median
                 const numericValues = cleanedData
                   .map(row => parseFloat(row[column]))
                   .filter(val => !isNaN(val))
                   .sort((a, b) => a - b);
-                
+
                 const median = numericValues.length % 2 === 0
                   ? (numericValues[numericValues.length / 2 - 1] + numericValues[numericValues.length / 2]) / 2
                   : numericValues[Math.floor(numericValues.length / 2)];
@@ -2067,7 +2093,7 @@ async function cleanCSVData(filePath, options = {}) {
                 // Fill with mode
                 const values = cleanedData.map(row => row[column]).filter(val => val && val.trim() !== '');
                 const mode = _.chain(values).countBy().toPairs().maxBy(1).value();
-                
+
                 if (mode) {
                   missingIndices.forEach(index => {
                     cleanedData[index][column] = mode[0];
@@ -2161,7 +2187,7 @@ async function cleanCSVData(filePath, options = {}) {
             cleanedData.forEach(row => {
               if (row[column]) {
                 const value = row[column].toString().trim();
-                
+
                 // Handle date fields
                 if (column.toLowerCase().includes('date') || column.toLowerCase().includes('time')) {
                   const dateValue = new Date(value);
@@ -2199,7 +2225,7 @@ async function cleanCSVData(filePath, options = {}) {
             cleanedData.forEach((row, index) => {
               if (row[column]) {
                 const value = row[column].toString();
-                
+
                 // Remove special characters from text fields (except dates and numbers)
                 if (isNaN(parseFloat(value)) && !Date.parse(value)) {
                   const cleaned = value.replace(/[^\w\s\-.,]/g, '').trim();
@@ -2208,13 +2234,13 @@ async function cleanCSVData(filePath, options = {}) {
                     validationIssues++;
                   }
                 }
-                
+
                 // Ensure consistent formatting
                 if (column.toLowerCase().includes('email')) {
                   row[column] = value.toLowerCase();
                   validationIssues++;
                 }
-                
+
                 if (column.toLowerCase().includes('phone')) {
                   const phoneClean = value.replace(/[^\d+\-()]/g, '');
                   if (phoneClean !== value) {
@@ -2261,6 +2287,33 @@ async function saveCleanedCSV(data, filePath, headers) {
 }
 
 function loadCSVFile(filePath) {
+  const extension = path.extname(filePath).toLowerCase();
+
+  if (extension === '.xlsx' || extension === '.xls') {
+    return new Promise((resolve, reject) => {
+      try {
+        const workbook = XLSX.readFile(filePath, { cellDates: true });
+        const sheetName = workbook.SheetNames[0];
+        if (!sheetName) {
+          return resolve([]);
+        }
+        const worksheet = workbook.Sheets[sheetName];
+        const rows = XLSX.utils.sheet_to_json(worksheet, {
+          defval: '',
+          raw: false,
+          blankrows: false
+        });
+        resolve(rows);
+      } catch (error) {
+        reject(error);
+      }
+    });
+  }
+
+  if (extension !== '.csv') {
+    return Promise.reject(new Error(`Unsupported file format: ${extension}. Please upload CSV or Excel files.`));
+  }
+
   return new Promise((resolve, reject) => {
     const rows = [];
     fs.createReadStream(filePath)
@@ -2274,20 +2327,20 @@ function loadCSVFile(filePath) {
 // Helper functions for data analysis
 function detectDataType(values) {
   if (values.length === 0) return 'unknown';
-  
+
   const nonEmptyValues = values.filter(val => val !== null && val !== undefined && val !== '');
   if (nonEmptyValues.length === 0) return 'unknown';
-  
+
   const numericCount = nonEmptyValues.filter(val => !isNaN(parseFloat(val))).length;
   const numericRatio = numericCount / nonEmptyValues.length;
-  
+
   if (numericRatio > 0.8) return 'numeric';
-  
+
   const dateCount = nonEmptyValues.filter(val => !isNaN(Date.parse(val))).length;
   const dateRatio = dateCount / nonEmptyValues.length;
-  
+
   if (dateRatio > 0.8) return 'date';
-  
+
   return 'categorical';
 }
 
@@ -2303,7 +2356,7 @@ function detectOutliers(values) {
   const IQR = Q3 - Q1;
   const lowerBound = Q1 - 1.5 * IQR;
   const upperBound = Q3 + 1.5 * IQR;
-  
+
   return values.filter(val => val < lowerBound || val > upperBound);
 }
 
@@ -2313,7 +2366,7 @@ function percentile(arr, p) {
   const lower = Math.floor(index);
   const upper = Math.ceil(index);
   const weight = index % 1;
-  
+
   if (upper >= sorted.length) return sorted[sorted.length - 1];
   return sorted[lower] * (1 - weight) + sorted[upper] * weight;
 }
@@ -2328,7 +2381,7 @@ app.use((error, req, res, next) => {
       });
     }
   }
-  
+
   res.status(500).json({
     success: false,
     error: error.message || 'Internal server error'
@@ -2347,12 +2400,12 @@ app.use((req, res) => {
 
 async function detectDataTypesForStorage(data, headers) {
   const dataTypes = {};
-  
+
   headers.forEach(column => {
     const values = data.map(row => row[column]).filter(val => val && val.toString().trim() !== '');
     dataTypes[column] = detectDataType(values);
   });
-  
+
   return dataTypes;
 }
 
@@ -2360,7 +2413,7 @@ async function calculateQualityMetrics(data, headers) {
   const totalCells = data.length * headers.length;
   let missingCells = 0;
   let validCells = 0;
-  
+
   // Calculate completeness and validity
   headers.forEach(column => {
     data.forEach(row => {
@@ -2371,16 +2424,16 @@ async function calculateQualityMetrics(data, headers) {
       }
     });
   });
-  
+
   const completeness = ((totalCells - missingCells) / totalCells * 100);
   const uniqueRows = _.uniqBy(data, row => JSON.stringify(row));
   const uniqueness = (uniqueRows.length / data.length * 100);
-  
+
   // Simple validity check (non-empty and reasonable values)
   const validity = (validCells / totalCells * 100);
-  
+
   const overallScore = (completeness + uniqueness + validity) / 3;
-  
+
   return {
     completeness: parseFloat(completeness.toFixed(2)),
     consistency: 95.0, // Simplified for now
@@ -2423,13 +2476,13 @@ function detectAdvancedOutliers(values) {
   const iqr = q3 - q1;
   const lowerBound = q1 - 1.5 * iqr;
   const upperBound = q3 + 1.5 * iqr;
-  
+
   const mean = values.reduce((a, b) => a + b, 0) / values.length;
   const std = calculateStandardDeviation(values);
-  
+
   const iqrOutliers = values.filter(val => val < lowerBound || val > upperBound);
   const zscoreOutliers = values.filter(val => Math.abs((val - mean) / std) > 2.5);
-  
+
   return {
     iqr: iqrOutliers,
     zscore: zscoreOutliers
@@ -2439,16 +2492,16 @@ function detectAdvancedOutliers(values) {
 function calculateCorrelation(data, col1, col2) {
   const pairs = data.map(row => [parseFloat(row[col1]), parseFloat(row[col2])])
     .filter(pair => !isNaN(pair[0]) && !isNaN(pair[1]));
-  
+
   if (pairs.length < 2) return 0;
-  
+
   const mean1 = pairs.reduce((sum, pair) => sum + pair[0], 0) / pairs.length;
   const mean2 = pairs.reduce((sum, pair) => sum + pair[1], 0) / pairs.length;
-  
+
   let numerator = 0;
   let sum1 = 0;
   let sum2 = 0;
-  
+
   pairs.forEach(pair => {
     const diff1 = pair[0] - mean1;
     const diff2 = pair[1] - mean2;
@@ -2456,14 +2509,14 @@ function calculateCorrelation(data, col1, col2) {
     sum1 += diff1 * diff1;
     sum2 += diff2 * diff2;
   });
-  
+
   const denominator = Math.sqrt(sum1 * sum2);
   return denominator === 0 ? 0 : numerator / denominator;
 }
 
 function validateDataPattern(values, dataType) {
   let invalidCount = 0;
-  
+
   values.forEach(value => {
     switch (dataType) {
       case 'email':
@@ -2487,13 +2540,13 @@ function validateDataPattern(values, dataType) {
         break;
     }
   });
-  
+
   return invalidCount;
 }
 
 function generateDataQualityRecommendations(analysis) {
   const recommendations = [];
-  
+
   // Completeness recommendations
   if (parseFloat(analysis.qualityMetrics.completeness) < 90) {
     recommendations.push({
@@ -2503,7 +2556,7 @@ function generateDataQualityRecommendations(analysis) {
       action: 'Review data collection processes and add required field validation.'
     });
   }
-  
+
   // Missing value recommendations
   Object.keys(analysis.missingValues).forEach(column => {
     const missingPercent = parseFloat(analysis.missingValues[column].percentage);
@@ -2516,7 +2569,7 @@ function generateDataQualityRecommendations(analysis) {
       });
     }
   });
-  
+
   // Outlier recommendations
   Object.keys(analysis.outliers || {}).forEach(column => {
     const outlierPercent = parseFloat(analysis.outliers[column].percentage);
@@ -2529,7 +2582,7 @@ function generateDataQualityRecommendations(analysis) {
       });
     }
   });
-  
+
   // Duplicate recommendations
   if (analysis.duplicates > 0) {
     recommendations.push({
@@ -2539,7 +2592,7 @@ function generateDataQualityRecommendations(analysis) {
       action: 'Remove duplicate entries and implement unique constraints at data source.'
     });
   }
-  
+
   // Data type consistency recommendations
   if (parseFloat(analysis.qualityMetrics.consistency) < 95) {
     recommendations.push({
@@ -2549,21 +2602,21 @@ function generateDataQualityRecommendations(analysis) {
       action: 'Standardize data formats and implement data type validation.'
     });
   }
-  
+
   return recommendations;
 }
 
 // Calculate comprehensive data quality score
 function calculateDataQualityScore(data, headers) {
   if (!data || data.length === 0) return 0;
-  
+
   let totalScore = 0;
   let factors = 0;
-  
+
   // Factor 1: Completeness (no missing values)
   let totalCells = data.length * headers.length;
   let filledCells = 0;
-  
+
   data.forEach(row => {
     headers.forEach(header => {
       if (row[header] && row[header].toString().trim() !== '') {
@@ -2571,30 +2624,42 @@ function calculateDataQualityScore(data, headers) {
       }
     });
   });
-  
+
   const completenessScore = (filledCells / totalCells) * 100;
   totalScore += completenessScore;
   factors++;
-  
+
   // Factor 2: Consistency (standardized formats)
   let consistencyScore = 85; // Base score for standardized data
   totalScore += consistencyScore;
   factors++;
-  
+
   // Factor 3: Validity (proper data types)
   let validityScore = 90; // High score after cleaning and validation
   totalScore += validityScore;
   factors++;
-  
+
   // Factor 4: Uniqueness (no duplicates after cleaning)
   let uniquenessScore = 95; // High score after duplicate removal
   totalScore += uniquenessScore;
   factors++;
-  
+
   return Math.round(totalScore / factors);
 }
 
 let serverInstance = null;
+
+// Serve static frontend in production
+const publicDir = path.join(__dirname, 'public');
+if (process.env.NODE_ENV === 'production' && fs.existsSync(publicDir)) {
+  app.use(express.static(publicDir));
+
+  // Handle SPA routing - serve index.html for any non-API routes
+  app.get(/^(?!\/api).*$/, (req, res) => {
+    res.sendFile(path.join(publicDir, 'index.html'));
+  });
+  console.log('📦 Serving static frontend from:', publicDir);
+}
 
 const startServer = () => {
   if (serverInstance) {
