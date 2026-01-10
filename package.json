@@ -1,0 +1,14 @@
+{
+    "name": "projectdata",
+    "version": "1.0.0",
+    "description": "Data Science Copilot - ProjectData",
+    "main": "backend/server.js",
+    "scripts": {
+        "start": "cd backend && node server.js",
+        "build": "cd backend && npm install --production",
+        "postinstall": "cd backend && npm install --production"
+    },
+    "engines": {
+        "node": ">=18.0.0"
+    }
+}

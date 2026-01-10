@@ -1,378 +1,253 @@
-# 🚀 Professional Data Science Platform# Professional Data Science Platform 🚀
+# ProjectData – Data Science Copilot
 
+> Turn raw CSVs into explainable insights, interactive visuals, and conversational answers.
 
-
-A comprehensive data analysis platform with AutoViz and SweetViz integration for automated data visualization and quality assessment.[![Docker](https://img.shields.io/badge/Docker-Containerized-blue.svg)](https://docker.com)
-
-[![React](https://img.shields.io/badge/React-18.3.1-blue.svg)](https://reactjs.org)
-
-## ⚡ Quick Start (Local Development)[![Node.js](https://img.shields.io/badge/Node.js-18+-green.svg)](https://nodejs.org)
-
-[![MongoDB](https://img.shields.io/badge/MongoDB-7.0-green.svg)](https://mongodb.com)
-
-### 🎯 One-Click Startup[![Python](https://img.shields.io/badge/Python-3.9+-yellow.svg)](https://python.org)
-
-```bash
-
-# Just double-click this file!A comprehensive, containerized data science platform featuring **AutoViz**, **SweetViz**, advanced analytics, and AI-powered insights. Built with modern technologies and production-ready Docker configuration.
-
-run-local.bat
-
-```## ✨ Features
-
-
-
-### 🏃‍♂️ Quick Start (No Setup Check)### 🎯 Core Capabilities
-
-```bash- **📊 AutoViz Integration** - Automated visualization generation with 1000+ chart types
-
-# For experienced users- **🍭 SweetViz Reports** - Comprehensive data profiling and analysis
-
-quick-start.bat- **🧹 Data Preprocessing** - Advanced cleaning, transformation, and quality analysis
-
-```- **🤖 AI Insights** - Machine learning-powered recommendations and patterns
-
-- **📈 Real-time Analytics** - Live data processing and visualization updates
-
-### 🛑 Stop All Servers
-
-```bash### 🏗️ Architecture
-
-stop-servers.bat- **Frontend**: React 18.3.1 with modern hooks, Framer Motion animations
-
-```- **Backend**: Node.js/Express 5.0 with MongoDB integration
-
-- **Python Engine**: AutoViz, SweetViz, Pandas, NumPy, Scikit-learn
-
-## 🌐 Access URLs- **Database**: MongoDB 7.0 with optimized schemas
-
-- **Containerization**: Docker with multi-stage builds and orchestration
-
-- **Frontend**: http://localhost:3000
-
-- **Backend API**: http://localhost:5000  ### 🔧 Technical Highlights
-
-- **Health Check**: http://localhost:5000/api/health- **Professional UI/UX** - Clean, responsive design with navigation cards
-
-- **Multi-format Support** - CSV, JSON, XLSX, ARF file processing
-
-## 🎯 Features- **Production Security** - Helmet.js, CORS, input validation, rate limiting
-
-- **Health Monitoring** - Built-in health checks and error handling
-
-- ✅ **Data Upload** - CSV file processing- **Scalable Architecture** - Microservices-ready with Docker Compose
-
-- ✅ **AutoViz Integration** - 1000+ automated visualizations
-
-- ✅ **SweetViz Analysis** - Comprehensive data profiling## 🚀 Quick Start (One Command!)
-
-- ✅ **Data Preprocessing** - Quality analysis and cleaning
-
-- ✅ **Interactive UI** - Professional React interface### Prerequisites
-
-- ✅ **MongoDB Storage** - Data persistence- Docker & Docker Compose
-
-- ✅ **Python Analytics** - Advanced data processing- Git
-
-
-
-## 📋 Requirements### Production Deployment
-
-```bash
-
-- **Node.js** 18+ # Clone and run in one command!
-
-- **Python** 3.8+git clone <your-repo-url>
-
-- **MongoDB** (Atlas or local)cd ProjectData
-
-docker-compose up -d
-
-## 🔧 Manual Setup (if needed)```
-
-
-
-```bash**That's it!** 🎉 
-
-# Backend- **Frontend**: http://localhost
-
-cd backend- **Backend API**: http://localhost:5000
-
-npm install- **Health Check**: http://localhost/health
-
-npm start
-
-### Development Mode
-
-# Frontend (in new terminal)```bash
-
-cd frontend# For development with hot reload
-
-npm install --legacy-peer-depsdocker-compose -f docker-compose.dev.yml up -d
-
-npm start```
-
-```- **Frontend**: http://localhost:3000 (hot reload)
-
-- **Backend**: http://localhost:5000 (nodemon)
-
-## 🚀 Coming Soon - Cloud Deployment
-
-## 📖 Usage Guide
-
-- **Frontend**: Vercel deployment
-
-- **Backend**: Railway/Render deployment  ### 1. **Upload Data**
-
-- **Database**: MongoDB Atlas (already configured)- Drag & drop CSV files up to 100MB
-
-- Support for multiple encodings and formats
-
-## 📊 Tech Stack- Real-time validation and preview
-
-
-
-- **Frontend**: React 18 + Create React App### 2. **Data Analysis**
-
-- **Backend**: Node.js + Express 5- Automatic statistical analysis
-
-- **Database**: MongoDB + Mongoose- Missing values detection
-
-- **Analytics**: Python (AutoViz, SweetViz, Pandas)- Data type inference and correlation analysis
-
-- **Visualization**: Chart.js, Plotly
-
-- **Styling**: CSS3 + Animations### 3. **Generate Visualizations**
-
-```bash
-
----# AutoViz - Automated EDA
-
-Happy Analyzing! 🎉Click "Generate AutoViz Report" → Opens professional charts
-
-# SweetViz - Data profiling
-Click "Generate SweetViz Report" → Comprehensive analysis
-```
-
-### 4. **Data Preprocessing**
-- Quality metrics calculation
-- Duplicate detection and removal
-- Missing value imputation
-- Outlier detection and treatment
-
-### 5. **AI Insights**
-- Pattern recognition
-- Anomaly detection
-- Automated recommendations
-- Predictive insights
-
-## 🏗️ Project Structure
-
-```
-ProjectData/
-├── backend/                 # Node.js API server
-│   ├── scripts/            # Python data processing
-│   │   ├── autoviz_generator.py
-│   │   ├── sweetviz_generator.py
-│   │   └── requirements.txt
-│   ├── config/             # Database configuration
-│   ├── models/             # MongoDB schemas
-│   ├── uploads/            # File storage
-│   ├── visualizations/     # Generated reports
-│   ├── Dockerfile          # Backend container
-│   └── server.js           # Main server file
-├── frontend/               # React application
-│   ├── src/
-│   │   ├── components/     # UI components
-│   │   ├── FileUpload.js   # Drag & drop upload
-│   │   ├── Visualization.js # AutoViz/SweetViz integration
-│   │   ├── DataPreprocessing.js # Data cleaning UI
-│   │   └── App.js          # Main application
-│   ├── Dockerfile          # Frontend container
-│   └── nginx.conf          # Production web server
-├── docker-compose.yml      # Production orchestration
-├── docker-compose.dev.yml  # Development setup
-└── README.md               # This file
-```
-
-## 🔧 Configuration
-
-### Environment Variables
-
-**Backend** (`.env`):
-```env
-PORT=5000
-NODE_ENV=production
-MONGODB_URI=mongodb://admin:datascience2024@mongodb:27017/dataprocessing?authSource=admin
-FRONTEND_URL=http://localhost
-MAX_FILE_SIZE=104857600
-```
-
-**Frontend** (production handled by nginx proxy):
-```env
-REACT_APP_API_URL=http://localhost:5000
-```
-
-### Database Setup
-MongoDB is automatically initialized with:
-- Admin user: `admin:datascience2024`
-- App user: `datauser:datapass2024`
-- Optimized indexes for performance
-- Health checks and replication ready
-
-## 📊 API Endpoints
-
-### Core Data Processing
-- `POST /api/upload` - File upload with validation
-- `POST /api/analyze-csv` - Statistical analysis
-- `POST /api/clean-csv` - Data cleaning and preprocessing
-- `GET /api/health` - Service health check
-
-### Visualization Generation
-- `POST /api/generate-autoviz` - AutoViz report creation
-- `POST /api/generate-sweetviz` - SweetViz profiling
-- `GET /api/visualizations/*` - Static report serving
-
-### Data Management
-- `GET /api/jobs` - Processing job history
-- `GET /api/jobs/:jobId` - Specific job details
-- `GET /api/download/:filename` - File downloads
-
-## 🐳 Docker Architecture
-
-### Multi-Stage Builds
-- **Base**: System dependencies and Python environment
-- **Development**: Hot reload with volume mounting
-- **Production**: Optimized, security-hardened containers
-
-### Container Security
-- Non-root users in all containers
-- Minimal attack surface with Alpine Linux
-- Security headers and input validation
-- Resource limits and health monitoring
-
-### Orchestration Features
-- **Service Dependencies** - Proper startup ordering
-- **Health Checks** - Automatic restart on failure
-- **Volume Management** - Persistent data storage
-- **Network Isolation** - Secure inter-service communication
-
-## 🚀 Production Deployment
-
-### Docker Swarm (Recommended)
-```bash
-# Initialize swarm
-docker swarm init
-
-# Deploy stack
-docker stack deploy -c docker-compose.yml datascience
-
-# Scale services
-docker service scale datascience_backend=3
-docker service scale datascience_frontend=2
-```
-
-### Kubernetes
-```bash
-# Convert to Kubernetes
-kompose convert -f docker-compose.yml
-
-# Deploy to cluster
-kubectl apply -f .
-```
-
-### Cloud Deployment
-- **AWS**: ECS/EKS with RDS MongoDB
-- **Azure**: Container Instances with Cosmos DB
-- **GCP**: Cloud Run with MongoDB Atlas
-
-## 🔍 Monitoring & Logging
-
-### Health Checks
-- **Frontend**: Nginx health endpoint
-- **Backend**: Express health with dependency checks
-- **Database**: MongoDB ping with authentication
-
-### Logging
-```bash
-# View logs
-docker-compose logs -f backend
-docker-compose logs -f frontend
-
-# Production monitoring
-docker stats
-docker-compose ps
-```
-
-## 🧪 Testing
-
-### Local Testing
-```bash
-# Run health checks
-curl http://localhost/health
-curl http://localhost:5000/api/health
-
-# Test file upload
-curl -X POST -F "file=@test.csv" http://localhost:5000/api/upload
-```
-
-### Integration Tests
-```bash
-# Backend tests
-cd backend && npm test
-
-# Frontend tests  
-cd frontend && npm test
-```
-
-## 🛠️ Development
-
-### Adding New Features
-1. **Backend**: Add routes in `server.js`, models in `/models`
-2. **Frontend**: Create components in `/src`, integrate with existing flow
-3. **Python**: Add scripts in `/backend/scripts`, update requirements.txt
-4. **Database**: Update schemas in `/models`, add migrations
-
-### Hot Reload Development
-```bash
-# Start development environment
-docker-compose -f docker-compose.dev.yml up -d
-
-# Code changes auto-reload:
-# - Backend: nodemon restarts on file changes
-# - Frontend: React hot reload for instant updates
-# - Database: persistent volume for data retention
-```
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create feature branch: `git checkout -b feature/amazing-feature`
-3. Commit changes: `git commit -m 'Add amazing feature'`
-4. Push to branch: `git push origin feature/amazing-feature`
-5. Open Pull Request
-
-## 📝 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **AutoViz** - Automated visualization library
-- **SweetViz** - Data profiling and comparison
-- **React** - Frontend framework
-- **Express.js** - Backend framework
-- **MongoDB** - Database solution
-- **Docker** - Containerization platform
-
-## 📞 Support
-
-- **Issues**: GitHub Issues
-- **Documentation**: `/docs` folder
-- **Examples**: `/examples` folder
+![Status](https://img.shields.io/badge/status-active-success)
+![Node](https://img.shields.io/badge/node-%5E18-339933)
+![Python](https://img.shields.io/badge/python-3.10%2B-3776AB)
+![License](https://img.shields.io/badge/license-ISC-blue)
 
 ---
 
-**Built with ❤️ for the data science community**
+## Table of Contents
+- [Highlights](#highlights)
+- [System Architecture](#system-architecture)
+- [Quick Start](#quick-start)
+- [Project Layout](#project-layout)
+- [Environment Variables](#environment-variables)
+- [Core Workflows](#core-workflows)
+- [API Surface](#api-surface)
+- [AI Question Answering](#ai-question-answering)
+- [Analytics & Visualization Engines](#analytics--visualization-engines)
+- [Quality & Testing](#quality--testing)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
-*Professional Data Science Platform - Making data analysis accessible, powerful, and beautiful.*
+---
+
+## Highlights
+
+- **End-to-end data workspace** – Upload, profile, clean, visualize, and export datasets in a single flow.
+- **LLM-powered copilot** – LangGraph orchestrates Gemini, OpenAI, or GitHub Models to answer natural language questions about your data.
+- **Opinionated defaults, flexible overrides** – Choose analysis modes (summary, trends, anomalies, correlations, insights) or jump straight into chat mode.
+- **Production-ready backend** – Express 5 API with hardened CORS, Helmet, file validation, and Firebase hooks for persistence.
+- **Python analytics engine** – Pandas pipelines, AutoViz, SweetViz, and LangGraph live alongside targeted validation and test suites.
+- **Deploy-friendly tooling** – Cross-platform scripts (`start-dev.*`, `run-local.*`, `stop-servers.bat`) make it easy to spin up or tear down the stack.
+
+---
+
+## System Architecture
+
+```
+┌────────────┐       HTTPS        ┌──────────────┐      spawn / IPC      ┌────────────────────┐
+│ React UI   │ ─────────────────▶ │ Express API  │ ─────────────────────▶ │ Python Analytics   │
+│ (frontend) │                    │ (backend)    │                        │ LangGraph + Pandas │
+└────────────┘                    └──────────────┘                        └────────┬──────────┘
+                                                                                │
+                                                                                ▼
+                                                                     Managed LLM Providers
+                                                            (Gemini ▸ Azure/OpenAI ▸ GitHub Models)
+```
+
+- Uploaded CSVs are stored under `backend/uploads/` and validated before processing.
+- The backend orchestrates AutoViz/SweetViz generation and forwards chat prompts to the Python LangGraph engine.
+- LangGraph builds a state graph: load → validate → profile → statistics → (optional) LLM answer → recommendations.
+- Provider selection respects `LLM_PROVIDER` overrides and surfaces structured errors if the chosen model fails.
+
+---
+
+## Quick Start
+
+### 1. Clone & bootstrap
+
+```powershell
+# choose a workspace directory first
+git clone <repository-url>
+cd ProjectData
+```
+
+### 2. Install dependencies
+
+```powershell
+# Backend (Node)
+cd backend
+npm install
+
+# Python analytics
+cd scripts
+python -m venv venv
+./venv/Scripts/Activate.ps1
+pip install -r requirements.txt
+
+deactivate
+cd ../..
+
+# Frontend (React)
+cd frontend
+npm install
+cd ..
+```
+
+### 3. Configure environment
+
+1. Copy `backend/.env` from `backend/.env.example` (create one if absent) and populate keys (see [Environment Variables](#environment-variables)).
+2. Never commit real secrets—`.env` is already in `.gitignore`.
+
+### 4. Run everything
+
+**Windows (PowerShell):**
+```powershell
+# From project root
+./start-dev.bat
+```
+
+**macOS / Linux:**
+```bash
+# From project root
+chmod +x start-dev.sh
+./start-dev.sh
+```
+
+Scripts start the backend API, launch the frontend, and ensure the Python environment is ready. Stop all services with `./stop-servers.bat` or `./stop-servers.sh`.
+
+---
+
+## Project Layout
+
+```
+ProjectData/
+├─ backend/
+│  ├─ server.js               # Express 5 API (upload, insights, LLM chat, viz routers)
+│  ├─ config/
+│  │  └─ firebase.js          # Firebase admin bootstrap (optional persistence)
+│  ├─ scripts/
+│  │  ├─ langgraph_analyzer.py # LangGraph state graph for analytics + chat
+│  │  ├─ autoviz_generator.py  # AutoViz automation
+│  │  ├─ sweetviz_generator.py # SweetViz automation
+│  │  ├─ bloom_analyzer.py     # Legacy Bloom pipeline (optional)
+│  │  └─ requirements.txt     # Python dependencies
+│  └─ uploads/                # User CSV staging area (gitignored)
+│
+├─ frontend/
+│  ├─ src/                    # React application
+│  ├─ public/
+│  └─ package.json
+│
+├─ data_cleaning.txt          # Research notes & backlog
+├─ start-dev.*                # Cross-platform dev launcher scripts
+├─ run-local.bat              # Backend-only quick start
+└─ README.md
+```
+
+---
+
+## Environment Variables
+
+Create `backend/.env` with the variables that apply to your deployment:
+
+| Variable | Required | Description |
+| --- | --- | --- |
+| `PORT` | No (default `5000`) | Express server port |
+| `NODE_ENV` | No | `development` or `production` |
+| `FRONTEND_URL` | No | Origin allowed by CORS (default `http://localhost:3000`) |
+| `MONGODB_URI` | Optional | MongoDB connection string if you enable persistence |
+| `PYTHON_PATH` | Optional | Absolute path to the Python interpreter used by analytics |
+| `MAX_FILE_SIZE` | Optional | Upload limit in bytes (default 100 MB) |
+| `UPLOAD_DIR` | Optional | Relative path to store uploaded files |
+| `LLM_PROVIDER` | Optional | Force provider: `gemini`, `azure`, `openai`, or `github` |
+| `LLM_MODEL` | Optional | Override model name for OpenAI/Azure/GitHub |
+| `GEMINI_MODEL` | Optional | Override Gemini model (defaults to `gemini-1.5-flash`) |
+| `GEMINI_API_KEY` | ✅ for Gemini | Google Generative AI key |
+| `OPENAI_API_KEY` | ✅ for OpenAI | OpenAI platform key |
+| `AZURE_OPENAI_ENDPOINT` + `AZURE_OPENAI_KEY` | ✅ for Azure | Azure OpenAI resource credentials |
+| `GITHUB_TOKEN` | ✅ for GitHub Models | Personal access token with `models` scope |
+
+> 💡 Tip: keep provider credentials mutually exclusive in local testing to avoid ambiguity. When `LLM_PROVIDER` is set, the system skips fallback logic and returns structured errors if the provider is unavailable.
+
+---
+
+## Core Workflows
+
+1. **Upload & validate** – CSV constraints enforced (path safety, file size, row limits). Metadata includes missing values, duplicates, column types, and memory footprint.
+2. **Profile** – Statistical summaries for numeric & categorical columns with configurable limits.
+3. **Visualize** – AutoViz and SweetViz jobs produce assets under `backend/visualizations/` and expose them through `/api/visualizations`.
+4. **AI analysis modes** – LangGraph modes (`summary`, `trends`, `insights`, `anomalies`, `correlations`) generate narrative insights and recommendations without LLM calls.
+5. **Conversational chat** – `analysis_type=chat` hands off to `answer_question_with_llm`, optionally delivering deterministic, rule-based answers before hitting the LLM.
+
+---
+
+## API Surface
+
+| Method | Endpoint | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/health` | Service heartbeat + uptime stats |
+| `POST` | `/api/upload` | Multipart CSV upload |
+| `POST` | `/api/analyze` | Mock statistical analysis (legacy path) |
+| `POST` | `/api/visualize` | Sample visualisation payloads |
+| `POST` | `/api/generate-autoviz` | Kick off AutoViz generation |
+| `POST` | `/api/generate-sweetviz` | Kick off SweetViz generation |
+| `POST` | `/api/generate-ai-insights` | Run LangGraph analysis in selected mode |
+| `POST` | `/api/ask-question` | Conversational Q&A backed by LangGraph LLM node |
+| `GET` | `/api/jobs` | Firestore job history (optional feature flag) |
+
+All responses follow `{ success, message?, error?, data? }` and bubble up validation hints when requests are malformed.
+
+---
+
+## AI Question Answering
+
+- **Rule-based guardrails** answer common queries (missing values, duplicate counts, column lists) instantly—no LLM token usage.
+- **Provider priority** defaults to Gemini → Azure → OpenAI → GitHub Models when matching credentials are present.
+- **Forced provider mode** (`LLM_PROVIDER`) suppresses fallback answers. If the provider fails, the API returns a structured message describing what went wrong so users can fix credentials without misinformation.
+- **Context payload** includes dataset schema, statistics, and a 5-row preview to keep responses grounded.
+- **Timeout protection**: backend enforces a 60 s deadline and returns HTTP 408 for runaway prompts.
+
+---
+
+## Analytics & Visualization Engines
+
+| Engine | Where | Notes |
+| --- | --- | --- |
+| **LangGraph** | `backend/scripts/langgraph_analyzer.py` | Stateful analysis graph, chat mode, provider orchestration |
+| **AutoViz** | `backend/scripts/autoviz_generator.py` | Automated chart packs (PNG/HTML) |
+| **SweetViz** | `backend/scripts/sweetviz_generator.py` | Rich, shareable HTML EDA reports |
+| **Bloom Analyzer** | `backend/scripts/bloom_analyzer.py` | Legacy experimental workflow (disabled by default) |
+
+To run LangGraph manually:
+```powershell
+cd backend/scripts
+./venv/Scripts/Activate.ps1
+python langgraph_analyzer.py ../uploads/sample.csv summary
+```
+
+---
+
+## Quality & Testing
+
+- **Python validation**: `python -m pytest test_validation.py` (inside `backend/scripts/`, with venv active)
+- **Linting (optional)**: integrate `ruff` or `flake8` for Python, and ESLint for the frontend (config scaffolding ready).
+- **Smoke tests**: `curl http://localhost:5000/api/health` after boot, upload a sample CSV, then hit `/api/ask-question`.
+- **CI suggestion**: add a workflow running `npm test` (frontend) and `pytest` (analytics) before deployments.
+
+---
+
+## Troubleshooting
+
+| Symptom | Likely Cause | Fix |
+| --- | --- | --- |
+| `Error: listen EADDRINUSE: :::5000` | Port already in use | `Stop-Process -Name node` (Windows) or `lsof -ti:5000 | xargs kill` (macOS/Linux) and retry |
+| `MongooseError: Operation buffering timed out` | MongoDB not reachable | Start local MongoDB or update `MONGODB_URI` |
+| `LLM provider failed` | Invalid or missing API key | Check `.env`, regenerate token, or switch provider | 
+| Python script exits non-zero | venv inactive or deps missing | Reactivate venv and run `pip install -r requirements.txt` |
+| Frontend throws `digital envelope routines` error | Node >=17 without OpenSSL flag | Install/use Node 18 LTS (`nvm use 18`) |
+
+---
+
+## Contributing
+
+1. Fork the repository and create a feature branch.
+2. Keep `.env` files and uploaded datasets out of git history.
+3. Run the backend, Python analytics, and frontend locally before opening a pull request.
+4. Document significant behavioural changes (especially LLM provider logic) in this README.
+
+Maintained with ❤️ by Hasnain & collaborators. Reach out via issues for feature requests or bug reports.
